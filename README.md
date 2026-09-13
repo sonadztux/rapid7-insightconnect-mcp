@@ -12,26 +12,26 @@ uv sync --frozen
 
 Dependencies are pinned in `uv.lock`. For runtime-only installation, use `uv sync --frozen --no-dev`.
 
-## Interactive onboarding
+## Interactive onboarding — plug and play
 
-Create a Rapid7 API key with only the permissions needed for your work, then run the wizard:
+Add the server to any MCP client without credentials; it starts unconfigured with a `setup` tool alongside the domain tools.
 
-```sh
-.venv/bin/rapid7-insightconnect-mcp setup
-```
+**In the client:** ask your assistant to run `setup`. The client shows the local setup page; opening it lets you pick the region, type the API key with hidden input, and tick execution/cancellation if you want the write tools. The key goes **only** through this page — never through the conversation, model context, or harness logs. The page binds to `127.0.0.1` on an ephemeral port, requires a single-use token, and closes after the first valid submission or after five minutes. The credential is verified right in the client; tools are active immediately, no restart.
 
-It asks for your region, whether to allow the write tools, and your API key with hidden input. It can optionally verify the key with one read-only request to your own tenant; declining makes no network call at all. It then prints a ready-to-paste stdio server block containing the absolute launcher path.
+**In a terminal:** `rapid7-insightconnect-mcp setup` runs the same walkthrough with hidden key entry. Clients that cannot open pages get these exact instructions instead of an error.
 
-**The wizard never stores or echoes your key.** The typed value is held in memory, used only for optional verification, and discarded. The printed snippet contains a `PASTE_YOUR_KEY_HERE` placeholder, so put the real key into your harness's secret mechanism rather than into a tracked file, shell history, or chat.
+The credential is stored at `~/.config/rapid7-insightconnect-mcp/credentials.json` with owner-only permissions (`0700` directory, `0600` file). The `R7_API_KEY` and `R7_REGION` environment variables override it; `R7_SETUP_TIMEOUT` (seconds, default 300) bounds the setup page. The printed snippet from the terminal wizard still uses a `PASTE_YOUR_KEY_HERE` placeholder for harnesses that prefer environment injection.
 
-Desktop and CLI harnesses both use this one wizard; there is no browser page, local listener, or MCP prompt for the credential. That is deliberate: MCP elicitation may be answered automatically by an agent client, so it is unsuitable for secrets.
+**Never ask the assistant to paste an API key into the conversation.** Typed chat input enters model context and harness logs and cannot be retracted.
+
+Create a Rapid7 API key with only the permissions needed for your work. Use your organization's region: `us`, `us2`, `us3`, `eu`, `ca`, `au`, or `ap`. This initial release uses the regions enumerated by the official OpenAPI snapshot.
 
 The commands are:
 
 | Command | Effect |
 | --- | --- |
-| `rapid7-insightconnect-mcp` | Serve MCP over stdio; requires the `R7_*` environment |
-| `rapid7-insightconnect-mcp setup` | Interactive onboarding wizard |
+| `rapid7-insightconnect-mcp` | Serve MCP over stdio; starts unconfigured if no credentials exist |
+| `rapid7-insightconnect-mcp setup` | Interactive onboarding wizard in a terminal |
 | `rapid7-insightconnect-mcp --help` | Usage summary |
 
 The server speaks MCP on stdout; interact through an MCP client, not a terminal prompt. Configuration errors go to stderr and exit with status 2, pointing at `setup`. No `.env` file is loaded automatically.
@@ -44,13 +44,13 @@ The server speaks MCP on stdout; interact through an MCP client, not a terminal 
 
 ## Connect any local MCP client
 
-The wizard prints this for you. To configure by hand, use your client's local/stdio server entry with:
+Configure by hand if you prefer environment injection over the stored credential. Use your client's local/stdio server entry with:
 
 - **Command:** `/absolute/path/rapid7-insightconnect-mcp/.venv/bin/rapid7-insightconnect-mcp`
 - **Arguments:** none
-- **Environment:** `R7_API_KEY`, `R7_REGION`, optional `R7_ALLOW_WRITES`
+- **Environment:** optional `R7_API_KEY`, `R7_REGION`, `R7_ALLOW_WRITES` — all three can be omitted and setup happens in the client
 
-The executable uses its own virtual environment and does not depend on the client's working directory. Example common `mcpServers` shape, assuming the parent client process already inherits the key:
+The executable uses its own virtual environment and does not depend on the client's working directory. Example common `mcpServers` shape:
 
 ```json
 {

@@ -29,6 +29,22 @@ class Settings(BaseModel):
         return f"https://{self.region}.api.insight.rapid7.com/"
 
     @classmethod
+    def load(cls, environ: Mapping[str, str] | None = None) -> Self:
+        """Environment wins so operators can override a stored credential."""
+        from .storage import load_credentials
+
+        env = os.environ if environ is None else environ
+        if env.get("R7_API_KEY") and env.get("R7_REGION"):
+            return cls.from_env(env)
+        stored = load_credentials()
+        if stored is None:
+            raise ValueError(
+                "No credentials found. Call the setup tool, or run "
+                "`rapid7-insightconnect-mcp setup` in a terminal"
+            )
+        return cls.model_validate(stored.model_dump())
+
+    @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> Self:
         env = os.environ if environ is None else environ
         if not env.get("R7_API_KEY") or not env.get("R7_REGION"):

@@ -35,8 +35,8 @@ def test_usage_mentions_both_modes(args):
     assert result.returncode == (0 if args[0] in {"--help", "help"} else 2)
 
 
-def test_missing_configuration_points_at_setup():
+def test_server_starts_unconfigured_and_names_the_setup_route():
     result = run()
-    assert result.returncode == 2
-    assert not result.stdout
+    assert result.returncode == 0
     assert "setup" in result.stderr
+    assert "R7_API_KEY" not in result.stderr

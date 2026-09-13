@@ -64,3 +64,34 @@ async def test_standard_stdio_discovery_and_resources(entry_point):
             )
             assert denied.isError
             assert "R7_ALLOW_WRITES" in denied.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_server_offers_setup_instead_of_failing(tmp_path):
+    """Adding the server without credentials must still yield a usable session."""
+    env = {key: value for key, value in os.environ.items() if not key.startswith("R7_")}
+    parameters = StdioServerParameters(
+        command=str(Path(sys.executable).parent / "rapid7-insightconnect-mcp"),
+        args=[],
+        env={**env, "XDG_CONFIG_HOME": str(tmp_path / "empty")},
+    )
+    async with stdio_client(parameters) as (reader, writer):
+        async with ClientSession(reader, writer) as session:
+            await session.initialize()
+            tools = {tool.name for tool in (await session.list_tools()).tools}
+            assert "setup" in tools
+            assert "list_workflows" in tools
+
+            config = await session.read_resource("insightconnect://server/config")
+            assert '"configured": false' in config.contents[0].text
+
+            blocked = await session.call_tool("list_workflows", {})
+            assert blocked.isError
+            assert "setup" in blocked.content[0].text
+
+            denied = await session.call_tool(
+                "execute_workflow",
+                {"workflow_id": "11111111-1111-4111-8111-111111111111", "confirm": True},
+            )
+            assert denied.isError
+            assert "setup" in denied.content[0].text
