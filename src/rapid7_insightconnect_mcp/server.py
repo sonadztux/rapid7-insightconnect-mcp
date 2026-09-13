@@ -15,6 +15,7 @@ from pydantic import Field, StrictBool
 
 from .client import ApiError, InsightConnectClient
 from .config import Settings
+from .setup import run_setup
 
 Offset = Annotated[int, Field(ge=0, le=9223372036854775807, strict=True)]
 Limit = Annotated[int, Field(ge=1, le=30, strict=True)]
@@ -203,14 +204,36 @@ def register_resources(server: FastMCP, api: InsightConnectClient, settings: Set
         return json.dumps(await request(api, "GET", f"connect/v1/globalArtifacts/{artifact_id}"))
 
 
-def main() -> None:
+USAGE = (
+    "Usage:\n"
+    "  rapid7-insightconnect-mcp          Serve MCP over stdio (needs R7_* environment)\n"
+    "  rapid7-insightconnect-mcp setup    Interactive onboarding wizard\n"
+    "  rapid7-insightconnect-mcp --help   Show this message"
+)
+
+
+def serve() -> None:
     try:
         settings = Settings.from_env()
     except ValueError:
         print(
             "Invalid configuration: set R7_API_KEY, R7_REGION (us/us2/us3/eu/ca/au/ap), "
-            "and optional R7_ALLOW_WRITES (true/false).",
+            "and optional R7_ALLOW_WRITES (true/false).\n"
+            "Run `rapid7-insightconnect-mcp setup` for an interactive walkthrough.",
             file=sys.stderr,
         )
         raise SystemExit(2) from None
     create_server(settings).run(transport="stdio")
+
+
+def main() -> None:
+    command = sys.argv[1] if len(sys.argv) > 1 else ""
+    if not command:
+        serve()
+    elif command == "setup":
+        raise SystemExit(run_setup())
+    elif command in {"help", "--help", "-h"}:
+        print(USAGE)
+    else:
+        print(f"Unknown argument: {command}\n{USAGE}", file=sys.stderr)
+        raise SystemExit(2)

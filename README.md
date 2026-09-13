@@ -12,21 +12,29 @@ uv sync --frozen
 
 Dependencies are pinned in `uv.lock`. For runtime-only installation, use `uv sync --frozen --no-dev`.
 
-## Credentials and launch
+## Interactive onboarding
 
-Create a Rapid7 API key with only the permissions needed for your work. Use your organization's region: `us`, `us2`, `us3`, `eu`, `ca`, `ap`, or `au`. This initial release uses the regions enumerated by the official OpenAPI snapshot.
+Create a Rapid7 API key with only the permissions needed for your work, then run the wizard:
 
-Set credentials through your harness's secure environment injection, or enter the key interactively. Do not put a real key in command arguments, tracked files, chat, or shell history. Example for Bash:
-
-```bash
-read -r -s -p 'Rapid7 API key: ' R7_API_KEY; printf '\n'
-export R7_API_KEY
-export R7_REGION=us
-export R7_ALLOW_WRITES=false
-.venv/bin/rapid7-insightconnect-mcp
+```sh
+.venv/bin/rapid7-insightconnect-mcp setup
 ```
 
-The process speaks MCP on stdout; interact through an MCP client, not a terminal prompt. Configuration errors go to stderr and exit with status 2. No `.env` file is loaded automatically.
+It asks for your region, whether to allow the write tools, and your API key with hidden input. It can optionally verify the key with one read-only request to your own tenant; declining makes no network call at all. It then prints a ready-to-paste stdio server block containing the absolute launcher path.
+
+**The wizard never stores or echoes your key.** The typed value is held in memory, used only for optional verification, and discarded. The printed snippet contains a `PASTE_YOUR_KEY_HERE` placeholder, so put the real key into your harness's secret mechanism rather than into a tracked file, shell history, or chat.
+
+Desktop and CLI harnesses both use this one wizard; there is no browser page, local listener, or MCP prompt for the credential. That is deliberate: MCP elicitation may be answered automatically by an agent client, so it is unsuitable for secrets.
+
+The commands are:
+
+| Command | Effect |
+| --- | --- |
+| `rapid7-insightconnect-mcp` | Serve MCP over stdio; requires the `R7_*` environment |
+| `rapid7-insightconnect-mcp setup` | Interactive onboarding wizard |
+| `rapid7-insightconnect-mcp --help` | Usage summary |
+
+The server speaks MCP on stdout; interact through an MCP client, not a terminal prompt. Configuration errors go to stderr and exit with status 2, pointing at `setup`. No `.env` file is loaded automatically.
 
 | Variable | Meaning |
 | --- | --- |
@@ -36,7 +44,7 @@ The process speaks MCP on stdout; interact through an MCP client, not a terminal
 
 ## Connect any local MCP client
 
-After installation, configure your client's local/stdio server entry with:
+The wizard prints this for you. To configure by hand, use your client's local/stdio server entry with:
 
 - **Command:** `/absolute/path/rapid7-insightconnect-mcp/.venv/bin/rapid7-insightconnect-mcp`
 - **Arguments:** none
