@@ -4,6 +4,7 @@ import json
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from importlib.metadata import version
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -44,6 +45,8 @@ def create_server(settings: Settings, *, client: InsightConnectClient | None = N
         lifespan=lifespan,
         log_level="WARNING",
     )
+    # FastMCP reports the SDK version unless the packaged version is set explicitly.
+    server._mcp_server.version = version("rapid7-insightconnect-mcp")
     register_workflow_tools(server, api, settings)
     register_job_tools(server, api, settings)
     register_artifact_tools(server, api)

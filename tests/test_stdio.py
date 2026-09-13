@@ -1,5 +1,6 @@
 import os
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,7 @@ async def test_standard_stdio_discovery_and_resources(entry_point):
         async with ClientSession(reader, writer) as session:
             initialized = await session.initialize()
             assert initialized.serverInfo.name == "rapid7-insightconnect"
+            assert initialized.serverInfo.version == version("rapid7-insightconnect-mcp")
             tools = {tool.name: tool for tool in (await session.list_tools()).tools}
             assert {
                 "list_workflows",
