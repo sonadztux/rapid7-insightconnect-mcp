@@ -1,0 +1,16 @@
+.venv/
+.uv-cache/
+.npm-cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.audit-requirements.txt
+htmlcov/
+dist/
+*.egg-info/
+.env
+.env.*
+!.env.example
