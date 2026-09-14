@@ -1,13 +1,21 @@
-"""Environment-only configuration; API hosts are never supplied by tool callers."""
+"""Configuration resolution; API hosts are never supplied by tool callers."""
 
 import os
 from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import Enum
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
 
 Region = Literal["us", "us2", "us3", "eu", "ca", "au", "ap"]
 ENV_SETTINGS = ("R7_API_KEY", "R7_REGION", "R7_ALLOW_WRITES")
+
+
+class ConfigurationSource(str, Enum):
+    ENVIRONMENT = "environment"
+    STORED = "stored credentials"
+    NONE = "none"
 
 
 class Settings(BaseModel):
@@ -31,19 +39,11 @@ class Settings(BaseModel):
 
     @classmethod
     def load(cls, environ: Mapping[str, str] | None = None) -> Self:
-        """Environment wins so operators can override a stored credential."""
-        from .storage import load_credentials
-
-        env = os.environ if environ is None else environ
-        if any(name in env for name in ENV_SETTINGS):
-            return cls.from_env(env)
-        stored = load_credentials()
-        if stored is None:
-            raise ValueError(
-                "No credentials found. Call the setup tool, or run "
-                "`rapid7-insightconnect-mcp configure` in a terminal"
-            )
-        return cls.model_validate(stored.model_dump())
+        """Resolve settings, failing closed when the selected source is invalid."""
+        resolution = resolve_settings(environ)
+        if resolution.settings is None:
+            raise ValueError(resolution.error or "Rapid7 configuration is unavailable")
+        return cls.model_validate(resolution.settings.model_dump())
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> Self:
@@ -58,3 +58,36 @@ class Settings(BaseModel):
             region=env["R7_REGION"],  # type: ignore[arg-type]
             allow_writes=writes == "true",
         )
+
+
+@dataclass(frozen=True)
+class ConfigurationResolution:
+    source: ConfigurationSource
+    settings: Settings | None
+    error: str | None = None
+
+
+def resolve_settings(environ: Mapping[str, str] | None = None) -> ConfigurationResolution:
+    """Inspect configuration selection without hiding why resolution failed."""
+    from .storage import load_credentials
+
+    env = os.environ if environ is None else environ
+    if any(name in env for name in ENV_SETTINGS):
+        try:
+            settings = Settings.from_env(env)
+        except ValueError as error:
+            return ConfigurationResolution(ConfigurationSource.ENVIRONMENT, None, str(error))
+        return ConfigurationResolution(ConfigurationSource.ENVIRONMENT, settings)
+
+    try:
+        stored = load_credentials()
+    except ValueError as error:
+        return ConfigurationResolution(ConfigurationSource.STORED, None, str(error))
+    if stored is None:
+        return ConfigurationResolution(
+            ConfigurationSource.NONE,
+            None,
+            "No credentials found. Call the setup tool, or run "
+            "`rapid7-insightconnect-mcp configure` in a terminal",
+        )
+    return ConfigurationResolution(ConfigurationSource.STORED, stored)
