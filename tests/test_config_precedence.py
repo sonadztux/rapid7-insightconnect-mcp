@@ -1,7 +1,7 @@
 import pytest
 from pydantic import SecretStr
 
-from insightconnect_mcp.config import Settings
+from insightconnect_mcp.config import ConfigurationSource, Settings, resolve_settings
 from insightconnect_mcp.storage import save_credentials
 
 
@@ -46,3 +46,36 @@ def test_complete_environment_override_can_disable_stored_writes(stored_credenti
     assert resolved.api_key.get_secret_value() == "env-key"
     assert resolved.region == "us"
     assert resolved.allow_writes is False
+
+
+def test_resolution_reports_no_configuration(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
+    result = resolve_settings({})
+    assert result.source is ConfigurationSource.NONE
+    assert result.settings is None
+    assert "No credentials found" in (result.error or "")
+
+
+def test_resolution_reports_stored_credentials(stored_credentials):
+    result = resolve_settings({})
+    assert result.source is ConfigurationSource.STORED
+    assert result.settings is not None
+    assert result.settings.region == "eu"
+    assert result.error is None
+
+
+def test_resolution_reports_environment_override(stored_credentials):
+    result = resolve_settings(
+        {"R7_API_KEY": "env-key", "R7_REGION": "us", "R7_ALLOW_WRITES": "false"}
+    )
+    assert result.source is ConfigurationSource.ENVIRONMENT
+    assert result.settings is not None
+    assert result.settings.api_key.get_secret_value() == "env-key"
+    assert result.error is None
+
+
+def test_resolution_reports_partial_environment_error_without_falling_back(stored_credentials):
+    result = resolve_settings({"R7_REGION": "us"})
+    assert result.source is ConfigurationSource.ENVIRONMENT
+    assert result.settings is None
+    assert result.error == "R7_API_KEY and R7_REGION are required"
