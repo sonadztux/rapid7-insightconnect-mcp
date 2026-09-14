@@ -169,9 +169,7 @@ def test_blank_verification_answer_defaults_to_read_only_check():
 
 
 def test_failed_verification_does_not_replace_existing_credentials():
-    save_credentials(
-        Settings(api_key=SecretStr("existing-key"), region="eu", allow_writes=False)
-    )
+    save_credentials(Settings(api_key=SecretStr("existing-key"), region="eu", allow_writes=False))
 
     def respond(request):
         return httpx.Response(401, text=f"{KEY} rejected by upstream")
