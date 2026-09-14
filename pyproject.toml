@@ -5,10 +5,25 @@ build-backend = "hatchling.build"
 [project]
 name = "rapid7-insightconnect-mcp"
 version = "0.1.0"
-description = "Local stdio MCP server for Rapid7 InsightConnect / Automation"
+description = "Local, safety-first MCP server for Rapid7 InsightConnect / Automation"
 readme = "README.md"
 requires-python = ">=3.11"
+keywords = ["mcp", "model-context-protocol", "rapid7", "insightconnect", "security-automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
 dependencies = ["mcp>=1.26,<2", "httpx>=0.28,<1", "pydantic>=2.11,<3"]
+
+[project.urls]
+Homepage = "https://github.com/sonadztux/rapid7-insightconnect-mcp"
+Repository = "https://github.com/sonadztux/rapid7-insightconnect-mcp"
+Issues = "https://github.com/sonadztux/rapid7-insightconnect-mcp/issues"
 
 [project.scripts]
 rapid7-insightconnect-mcp = "insightconnect_mcp.cli:main"
@@ -16,7 +31,15 @@ rapid7-insightconnect-mcp = "insightconnect_mcp.cli:main"
 # Allowlist, not the default "everything not gitignored": local client configs and
 # scratch files in the checkout can hold absolute host paths or credentials.
 [tool.hatch.build.targets.sdist]
-include = ["/insightconnect_mcp", "/tests", "/README.md", "/pyproject.toml", "/uv.lock"]
+include = [
+    "/insightconnect_mcp",
+    "/tests",
+    "/README.md",
+    "/SECURITY.md",
+    "/CONTRIBUTING.md",
+    "/pyproject.toml",
+    "/uv.lock",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["insightconnect_mcp"]
