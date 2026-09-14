@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from rapid7_insightconnect_mcp.setup import REGIONS, run_setup
+from insightconnect_mcp.setup_wizard import REGIONS, run_setup
 
 KEY = "wizard-secret-key"
 

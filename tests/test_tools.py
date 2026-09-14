@@ -5,9 +5,9 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import SecretStr
 
-from rapid7_insightconnect_mcp.client import InsightConnectClient
-from rapid7_insightconnect_mcp.config import Settings
-from rapid7_insightconnect_mcp.server import create_server
+from insightconnect_mcp.client import InsightConnectClient
+from insightconnect_mcp.config import Settings
+from insightconnect_mcp.server import create_server
 
 ID = "11111111-1111-4111-8111-111111111111"
 

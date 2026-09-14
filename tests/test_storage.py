@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr
 
-from rapid7_insightconnect_mcp.config import Settings
-from rapid7_insightconnect_mcp.storage import credentials_path, load_credentials, save_credentials
+from insightconnect_mcp.config import Settings
+from insightconnect_mcp.storage import credentials_path, load_credentials, save_credentials
 
 KEY = "stored-secret-key"
 

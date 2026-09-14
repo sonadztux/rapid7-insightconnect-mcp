@@ -69,7 +69,7 @@ async def verify(settings: Settings, transport: httpx.AsyncBaseTransport | None)
 
 
 def launcher() -> str:
-    """Harness configuration needs an absolute path, not the invoking argv[0]."""
+    """MCP client configuration needs an absolute path, not the invoking argv[0]."""
     installed = Path(sys.executable).parent / "rapid7-insightconnect-mcp"
     return str(installed if installed.exists() else Path(sys.argv[0]).resolve())
 
@@ -88,10 +88,10 @@ def render(region: str, allow_writes: bool, output: IO[str]) -> None:
             }
         }
     }
-    print("\nAdd this local/stdio server to your harness:\n", file=output)
+    print("\nAdd this local/stdio server to your MCP client:\n", file=output)
     print(json.dumps(snippet, indent=2), file=output)
     print(
-        f"\nReplace {PLACEHOLDER} using your harness's secret mechanism."
+        f"\nReplace {PLACEHOLDER} using your MCP client's secret settings."
         "\nThe key you typed was discarded and never written to disk.",
         file=output,
     )

@@ -11,12 +11,15 @@ requires-python = ">=3.11"
 dependencies = ["mcp>=1.26,<2", "httpx>=0.28,<1", "pydantic>=2.11,<3"]
 
 [project.scripts]
-rapid7-insightconnect-mcp = "rapid7_insightconnect_mcp.server:main"
+rapid7-insightconnect-mcp = "insightconnect_mcp.cli:main"
 
 # Allowlist, not the default "everything not gitignored": local client configs and
 # scratch files in the checkout can hold absolute host paths or credentials.
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/tests", "/docs", "/README.md", "/pyproject.toml", "/uv.lock"]
+include = ["/insightconnect_mcp", "/tests", "/README.md", "/pyproject.toml", "/uv.lock"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["insightconnect_mcp"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "mypy>=1.15,<2", "pip-audit>=2.9,<3"]
@@ -41,5 +44,4 @@ max-complexity = 10
 [tool.mypy]
 python_version = "3.11"
 strict = true
-packages = ["rapid7_insightconnect_mcp"]
-mypy_path = "src"
+packages = ["insightconnect_mcp"]

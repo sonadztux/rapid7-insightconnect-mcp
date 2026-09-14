@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import httpx
 import pytest
 
-from rapid7_insightconnect_mcp.onboarding import OneShotForm
+from insightconnect_mcp.setup_form import OneShotForm
 
 KEY = "form-secret-key"
 

@@ -6,8 +6,8 @@ import httpx
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from rapid7_insightconnect_mcp.client import ApiError, InsightConnectClient
-from rapid7_insightconnect_mcp.config import Settings
+from insightconnect_mcp.client import ApiError, InsightConnectClient
+from insightconnect_mcp.config import Settings
 
 
 @pytest.fixture

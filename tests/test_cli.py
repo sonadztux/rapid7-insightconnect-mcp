@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-COMMAND = str(sys.executable), "-m", "rapid7_insightconnect_mcp"
+COMMAND = str(sys.executable), "-m", "insightconnect_mcp"
 CLEAN_ENV = {key: value for key, value in os.environ.items() if not key.startswith("R7_")}
 
 
@@ -57,7 +57,7 @@ def test_usage_mentions_both_modes(args):
     ],
 )
 def test_setup_timeout_falls_back_on_unusable_values(raw, expected):
-    from rapid7_insightconnect_mcp.server import setup_timeout
+    from insightconnect_mcp.server import setup_timeout
 
     environ = {} if raw is None else {"R7_SETUP_TIMEOUT": raw}
     assert setup_timeout(environ) == expected

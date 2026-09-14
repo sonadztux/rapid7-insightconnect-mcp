@@ -17,7 +17,7 @@ async def test_standard_stdio_discovery_and_resources(entry_point):
             if entry_point
             else sys.executable
         ),
-        args=[] if entry_point else ["-m", "rapid7_insightconnect_mcp"],
+        args=[] if entry_point else ["-m", "insightconnect_mcp"],
         env={
             **os.environ,
             "R7_API_KEY": "stdio-fake-key",

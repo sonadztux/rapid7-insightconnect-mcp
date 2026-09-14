@@ -1,4 +1,4 @@
-"""End-to-end onboarding through the MCP session, standing in for a harness client."""
+"""End-to-end onboarding through the MCP session, standing in for an MCP client."""
 
 import json
 import os
@@ -11,9 +11,9 @@ from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
 from mcp.shared.context import RequestContext
 
-from rapid7_insightconnect_mcp.storage import credentials_path
+from insightconnect_mcp.storage import credentials_path
 
-KEY = "harness-flow-key"
+KEY = "client-flow-key"
 LAUNCHER = str(Path(sys.executable).parent / "rapid7-insightconnect-mcp")
 
 
@@ -28,7 +28,7 @@ def parameters(config_home, setup_timeout=None):
 
 
 def responder(action="accept", submit=None, seen=None):
-    """Stands in for a harness that shows the URL and lets the user open it."""
+    """Stands in for an MCP client that shows the URL and lets the user open it."""
 
     async def callback(context: RequestContext, params):
         if seen is not None:
