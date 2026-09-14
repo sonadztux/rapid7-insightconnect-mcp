@@ -64,7 +64,9 @@ def ask_key(getpass_fn: Callable[[str], str], output: IO[str]) -> SecretStr:
                 "This terminal cannot keep the input hidden; run configure in a terminal that can"
             ) from None
         except (EOFError, KeyboardInterrupt):
-            raise Aborted("Configuration needs an interactive terminal; run it from a shell") from None
+            raise Aborted(
+                "Configuration needs an interactive terminal; run it from a shell"
+            ) from None
         if key:
             return SecretStr(key)
         print("  Empty input.", file=output)
@@ -111,7 +113,9 @@ def run_configure(
     print("✓ Credentials saved", file=output)
     print(f"✓ Region: {region}", file=output)
     print(f"✓ Writes {writes}", file=output)
-    print("\nRestart any already-running MCP client sessions to load the saved settings.", file=output)
+    print(
+        "\nRestart any already-running MCP client sessions to load the saved settings.", file=output
+    )
     return 0
 
 
