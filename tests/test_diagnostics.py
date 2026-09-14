@@ -6,7 +6,7 @@ from pydantic import SecretStr
 
 from insightconnect_mcp.config import Settings
 from insightconnect_mcp.diagnostics import run_doctor
-from insightconnect_mcp.storage import save_credentials
+from insightconnect_mcp.storage import credentials_path, save_credentials
 
 KEY = "doctor-secret-key"
 
@@ -22,18 +22,60 @@ def test_local_doctor_reports_unconfigured_without_network():
     output = io.StringIO()
     assert run_doctor(output=output) == 1
     text = output.getvalue()
+    assert "Source: none" in text
     assert "configuration required" in text
     assert KEY not in text
 
 
-def test_local_doctor_reports_region_and_write_policy():
+def test_local_doctor_reports_stored_source_region_write_policy_and_storage_validation():
     save_credentials(Settings(api_key=SecretStr(KEY), region="eu", allow_writes=False))
     output = io.StringIO()
     assert run_doctor(output=output) == 0
     text = output.getvalue()
+    assert "Source: stored credentials" in text
+    assert "Credential storage validated" in text
     assert "Region: eu" in text
     assert "Writes disabled" in text
     assert "Not checked" in text
+    assert KEY not in text
+
+
+def test_local_doctor_reports_environment_source_without_claiming_storage_validation(monkeypatch):
+    monkeypatch.setenv("R7_API_KEY", KEY)
+    monkeypatch.setenv("R7_REGION", "us2")
+    monkeypatch.setenv("R7_ALLOW_WRITES", "false")
+
+    output = io.StringIO()
+    assert run_doctor(output=output) == 0
+    text = output.getvalue()
+    assert "Source: environment" in text
+    assert "Region: us2" in text
+    assert "Credential storage validated" not in text
+    assert KEY not in text
+
+
+def test_partial_environment_doctor_fails_closed_even_when_stored_credentials_exist(monkeypatch):
+    save_credentials(Settings(api_key=SecretStr("stored-key"), region="eu", allow_writes=False))
+    monkeypatch.setenv("R7_REGION", "us")
+
+    output = io.StringIO()
+    assert run_doctor(output=output) == 1
+    text = output.getvalue()
+    assert "Source: environment" in text
+    assert "R7_API_KEY and R7_REGION are required" in text
+    assert "Region: eu" not in text
+    assert "stored-key" not in text
+
+
+def test_local_doctor_rejects_unsafe_stored_credential_permissions():
+    save_credentials(Settings(api_key=SecretStr(KEY), region="eu", allow_writes=False))
+    credentials_path().chmod(0o644)
+
+    output = io.StringIO()
+    assert run_doctor(output=output) == 1
+    text = output.getvalue()
+    assert "Source: stored credentials" in text
+    assert "configuration required" in text
     assert KEY not in text
 
 
