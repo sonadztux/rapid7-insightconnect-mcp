@@ -86,7 +86,7 @@ def test_collect_diagnostics_returns_structured_checks():
     assert all(check.status in CheckStatus for check in checks)
     assert any(check.name == "configuration-source" for check in checks)
     connectivity = next(check for check in checks if check.name == "rapid7-connectivity")
-    assert connectivity.status is CheckStatus.WARN
+    assert connectivity.status is CheckStatus.WARNING
     assert "doctor --online" in (connectivity.remediation or "")
 
 
