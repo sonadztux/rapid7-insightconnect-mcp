@@ -7,6 +7,7 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
 
 Region = Literal["us", "us2", "us3", "eu", "ca", "au", "ap"]
+ENV_SETTINGS = ("R7_API_KEY", "R7_REGION", "R7_ALLOW_WRITES")
 
 
 class Settings(BaseModel):
@@ -34,7 +35,7 @@ class Settings(BaseModel):
         from .storage import load_credentials
 
         env = os.environ if environ is None else environ
-        if env.get("R7_API_KEY") and env.get("R7_REGION"):
+        if any(name in env for name in ENV_SETTINGS):
             return cls.from_env(env)
         stored = load_credentials()
         if stored is None:
