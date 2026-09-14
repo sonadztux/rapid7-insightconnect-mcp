@@ -127,6 +127,16 @@ async def test_client_without_elicitation_gets_terminal_instructions(config_home
     assert not credentials_path().exists()
 
 
+async def test_form_only_client_is_never_sent_the_setup_url(config_home, monkeypatch):
+    """URL mode must be declared by the client; the tokenized URL goes nowhere else."""
+    monkeypatch.setattr(types, "UrlElicitationCapability", lambda: None)
+    seen = []
+    result, _ = await run_setup_tool(config_home, responder(seen=seen), setup_timeout=2)
+    assert seen == []
+    assert "terminal" in result.content[0].text
+    assert not credentials_path().exists()
+
+
 async def test_save_failure_does_not_leak_the_local_filesystem_path(tmp_path):
     """A plain file where the config directory should be makes mkdir() raise
     NotADirectoryError; the tool must not forward that OSError's path to the model."""

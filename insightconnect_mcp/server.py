@@ -120,6 +120,16 @@ TERMINAL_FALLBACK = (
 )
 
 
+def supports_url_elicitation(ctx: Context[Any, Any]) -> bool:
+    """URL mode must be declared; a bare elicitation capability means form mode only.
+
+    Without this check the tokenized setup URL would reach clients that cannot open it.
+    """
+    params = ctx.session.client_params
+    elicitation = params.capabilities.elicitation if params else None
+    return elicitation is not None and elicitation.url is not None
+
+
 async def collect(ctx: Context[Any, Any], form: OneShotForm) -> tuple[str | None, Settings | None]:
     elicitation_id = f"rapid7-setup-{secrets.token_hex(8)}"
     try:
@@ -146,6 +156,8 @@ def register_setup_tool(server: FastMCP, runtime: Runtime) -> None:
     @server.tool(annotations=SETUP)
     async def setup(ctx: Context[Any, Any]) -> str:
         """Configure Rapid7 credentials via a secure local page. Never ask for the key in chat."""
+        if not supports_url_elicitation(ctx):
+            return TERMINAL_FALLBACK
         async with OneShotForm(timeout=SETUP_TIMEOUT) as form:
             message, settings = await collect(ctx, form)
         if settings is None:
