@@ -15,9 +15,9 @@ from .onboarding import verify_credentials
 
 
 class CheckStatus(StrEnum):
-    PASS = "pass"
-    WARN = "warn"
-    FAIL = "fail"
+    OK = "pass"
+    WARNING = "warn"
+    ERROR = "fail"
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ def _failure_check(failure: str) -> DiagnosticCheck:
         return DiagnosticCheck(
             "Rapid7 connectivity",
             "rapid7-connectivity",
-            CheckStatus.FAIL,
+            CheckStatus.ERROR,
             "Authentication failed (HTTP 401)",
             "Check the API key and region.",
         )
@@ -42,7 +42,7 @@ def _failure_check(failure: str) -> DiagnosticCheck:
         return DiagnosticCheck(
             "Rapid7 connectivity",
             "rapid7-connectivity",
-            CheckStatus.FAIL,
+            CheckStatus.ERROR,
             "Authorization failed (HTTP 403)",
             "Check Rapid7 API key permissions.",
         )
@@ -50,7 +50,7 @@ def _failure_check(failure: str) -> DiagnosticCheck:
         return DiagnosticCheck(
             "Rapid7 connectivity",
             "rapid7-connectivity",
-            CheckStatus.FAIL,
+            CheckStatus.ERROR,
             "Connection failed",
             "Check network access to the configured Rapid7 regional API endpoint.",
         )
@@ -58,14 +58,14 @@ def _failure_check(failure: str) -> DiagnosticCheck:
         return DiagnosticCheck(
             "Rapid7 connectivity",
             "rapid7-connectivity",
-            CheckStatus.FAIL,
+            CheckStatus.ERROR,
             "Request timed out",
             "Check network access and try the read-only diagnostic again.",
         )
     return DiagnosticCheck(
         "Rapid7 connectivity",
         "rapid7-connectivity",
-        CheckStatus.FAIL,
+        CheckStatus.ERROR,
         f"Read-only API check failed: {failure}",
     )
 
@@ -81,13 +81,13 @@ def collect_diagnostics(
         DiagnosticCheck(
             "Runtime",
             "version",
-            CheckStatus.PASS,
+            CheckStatus.OK,
             f"Version {version('rapid7-insightconnect-mcp')}",
         )
     ]
 
     resolution = resolve_settings()
-    source_status = CheckStatus.PASS if resolution.settings is not None else CheckStatus.FAIL
+    source_status = CheckStatus.OK if resolution.settings is not None else CheckStatus.ERROR
     checks.append(
         DiagnosticCheck(
             "Configuration",
@@ -101,7 +101,7 @@ def collect_diagnostics(
             DiagnosticCheck(
                 "Configuration",
                 "configuration",
-                CheckStatus.FAIL,
+                CheckStatus.ERROR,
                 resolution.error or "Rapid7 configuration is unavailable",
             )
         )
@@ -112,7 +112,7 @@ def collect_diagnostics(
         DiagnosticCheck(
             "Configuration",
             "credentials",
-            CheckStatus.PASS,
+            CheckStatus.OK,
             "Credentials configured",
         )
     )
@@ -121,7 +121,7 @@ def collect_diagnostics(
             DiagnosticCheck(
                 "Configuration",
                 "credential-storage",
-                CheckStatus.PASS,
+                CheckStatus.OK,
                 "Credential storage validated",
             )
         )
@@ -130,13 +130,13 @@ def collect_diagnostics(
             DiagnosticCheck(
                 "Configuration",
                 "region",
-                CheckStatus.PASS,
+                CheckStatus.OK,
                 f"Region: {settings.region}",
             ),
             DiagnosticCheck(
                 "Configuration",
                 "write-policy",
-                CheckStatus.PASS,
+                CheckStatus.OK,
                 f"Writes {'enabled' if settings.allow_writes else 'disabled'}",
             ),
         ]
@@ -147,7 +147,7 @@ def collect_diagnostics(
             DiagnosticCheck(
                 "Rapid7 connectivity",
                 "rapid7-connectivity",
-                CheckStatus.WARN,
+                CheckStatus.WARNING,
                 "Not checked",
                 "Run `rapid7-insightconnect-mcp doctor --online`",
             )
@@ -162,7 +162,7 @@ def collect_diagnostics(
             DiagnosticCheck(
                 "Rapid7 connectivity",
                 "rapid7-connectivity",
-                CheckStatus.PASS,
+                CheckStatus.OK,
                 "Read-only API check succeeded",
             )
         )
@@ -182,9 +182,9 @@ def run_doctor(
 
     current_section: str | None = None
     markers = {
-        CheckStatus.PASS: "✓",
-        CheckStatus.WARN: "○",
-        CheckStatus.FAIL: "✗",
+        CheckStatus.OK: "✓",
+        CheckStatus.WARNING: "○",
+        CheckStatus.ERROR: "✗",
     }
     for check in checks:
         if check.section != current_section:
@@ -194,14 +194,14 @@ def run_doctor(
         if check.remediation:
             print(f"    {check.remediation}", file=output)
 
-    failures = [check for check in checks if check.status is CheckStatus.FAIL]
+    failures = [check for check in checks if check.status is CheckStatus.ERROR]
     if failures:
         configuration_failure = any(check.section == "Configuration" for check in failures)
         result = "configuration required" if configuration_failure else "Rapid7 check failed"
         print(f"\nResult: {result}", file=output)
         return 1
 
-    if any(check.status is CheckStatus.WARN for check in checks):
+    if any(check.status is CheckStatus.WARNING for check in checks):
         print("\nResult: healthy local configuration", file=output)
     else:
         print("\nResult: healthy", file=output)
