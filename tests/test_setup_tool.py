@@ -68,17 +68,18 @@ async def test_client_receives_a_loopback_url_and_not_the_key(config_home):
 
 
 async def test_successful_flow_stores_credential_and_activates_tools(config_home, tmp_path):
-    """The stored credential activates tools immediately. list_workflows reaching
-    the real Rapid7 host with a fake key must fail with sanitized 401, proving the
-    request went out; a DNS/proxy failure would read differently."""
+    """The stored credential activates tools immediately, checked without any
+    request leaving the machine: the write guard gets past the configuration
+    check and stops only at the missing confirmation."""
     submit = {"region": "eu", "api_key": KEY, "allow_writes": "on"}
+    job = {"job_id": "11111111-1111-4111-8111-111111111111"}
 
     async with stdio_client(parameters(tmp_path / "server")) as (reader, writer):
         async with ClientSession(
             reader, writer, elicitation_callback=responder(submit=submit)
         ) as session:
             await session.initialize()
-            before = await session.call_tool("list_workflows", {})
+            before = await session.call_tool("cancel_job", job)
             assert before.isError
             assert "not configured" in before.content[0].text
 
@@ -87,9 +88,16 @@ async def test_successful_flow_stores_credential_and_activates_tools(config_home
             assert KEY not in text
             assert "Ready" in text
 
-            after = await session.call_tool("list_workflows", {})
+            config = await session.read_resource("insightconnect://server/config")
+            active = json.loads(config.contents[0].text)
+            assert active["configured"] is True
+            assert active["region"] == "eu"
+            assert active["writes_enabled"] is True
+            assert KEY not in config.model_dump_json()
+
+            after = await session.call_tool("cancel_job", job)
             assert after.isError
-            assert "HTTP 401" in after.content[0].text
+            assert "Explicit user approval required" in after.content[0].text
 
     stored = json.loads(
         (tmp_path / "server" / "rapid7-insightconnect-mcp" / "credentials.json").read_text()

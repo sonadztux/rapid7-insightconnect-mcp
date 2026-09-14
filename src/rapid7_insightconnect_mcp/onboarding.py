@@ -20,6 +20,18 @@ from .config import Region, Settings
 
 TIMEOUT = 300.0
 MAX_BODY = 8192
+# The page loads nothing external and must not be framed by another origin
+# (clickjacking the password field) or leak its tokenized URL as a referrer.
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'"
+    ),
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "no-store",
+}
 
 PAGE = """<!doctype html>
 <html><head><meta charset="utf-8"><title>Rapid7 InsightConnect MCP setup</title>
@@ -160,7 +172,8 @@ class OneShotForm:
                 self.send_response(status)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(payload)))
-                self.send_header("Cache-Control", "no-store")
+                for name, value in SECURITY_HEADERS.items():
+                    self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(payload)
 

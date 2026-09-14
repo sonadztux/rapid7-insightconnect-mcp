@@ -1,10 +1,11 @@
 """Harness-independent MCP tools and resources over local stdio."""
 
 import json
+import math
 import os
 import secrets
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import Annotated, Any, Literal
@@ -98,8 +99,21 @@ def require_write(runtime: Runtime, confirm: bool) -> None:
 SETUP = ToolAnnotations(
     readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=True
 )
+DEFAULT_SETUP_TIMEOUT = 300.0
+
+
+def setup_timeout(environ: Mapping[str, str] | None = None) -> float:
+    """A bad value must not stop the server from starting, nor disable the window."""
+    raw = (os.environ if environ is None else environ).get("R7_SETUP_TIMEOUT", "")
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_SETUP_TIMEOUT
+    return value if math.isfinite(value) and value > 0 else DEFAULT_SETUP_TIMEOUT
+
+
 # Read per server start so tests can shorten the window through the child's environment.
-SETUP_TIMEOUT = float(os.environ.get("R7_SETUP_TIMEOUT", "300"))
+SETUP_TIMEOUT = setup_timeout()
 TERMINAL_FALLBACK = (
     "This client cannot open the secure setup page. Run `rapid7-insightconnect-mcp setup` "
     "in a terminal for a guided walkthrough — it does not save credentials for you. Add the "
@@ -287,7 +301,7 @@ def register_resources(server: FastMCP, runtime: Runtime) -> None:
 
 USAGE = (
     "Usage:\n"
-    "  rapid7-insightconnect-mcp          Serve MCP over stdio (needs R7_* environment)\n"
+    "  rapid7-insightconnect-mcp          Serve MCP over stdio (stored or R7_* credentials)\n"
     "  rapid7-insightconnect-mcp setup    Interactive onboarding wizard\n"
     "  rapid7-insightconnect-mcp --help   Show this message"
 )

@@ -13,6 +13,11 @@ dependencies = ["mcp>=1.26,<2", "httpx>=0.28,<1", "pydantic>=2.11,<3"]
 [project.scripts]
 rapid7-insightconnect-mcp = "rapid7_insightconnect_mcp.server:main"
 
+# Allowlist, not the default "everything not gitignored": local client configs and
+# scratch files in the checkout can hold absolute host paths or credentials.
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/docs", "/README.md", "/pyproject.toml", "/uv.lock"]
+
 [dependency-groups]
 dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "mypy>=1.15,<2", "pip-audit>=2.9,<3"]
 

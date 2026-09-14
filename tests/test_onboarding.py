@@ -35,6 +35,25 @@ async def test_form_page_renders_regions_without_revealing_secrets():
     assert 'autocomplete="off"' in page.text
 
 
+async def test_responses_forbid_framing_and_foreign_resources():
+    async with OneShotForm() as form:
+        base = form.url.split("?")[0]
+        async with httpx.AsyncClient() as http:
+            responses = [
+                await http.get(form.url),
+                await http.get(base),
+                await http.post(form.url, data={"region": "mars", "api_key": KEY}),
+            ]
+    for response in responses:
+        policy = response.headers["Content-Security-Policy"]
+        assert "default-src 'none'" in policy
+        assert "frame-ancestors 'none'" in policy
+        assert "form-action 'self'" in policy
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert response.headers["Referrer-Policy"] == "no-referrer"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
 @pytest.mark.parametrize("token", ["", "wrong-token"])
 async def test_wrong_token_is_refused_on_both_methods(token):
     async with OneShotForm() as form:
