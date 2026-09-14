@@ -71,6 +71,19 @@ async def run_setup_tool(config_home, callback, setup_timeout=None):
             return result, session
 
 
+async def test_unconfigured_resource_exposes_onboarding_next_step(config_home):
+    async with stdio_client(parameters(config_home)) as (reader, writer):
+        async with ClientSession(reader, writer) as session:
+            await session.initialize()
+            config = await session.read_resource("insightconnect://server/config")
+
+    state = json.loads(config.contents[0].text)
+    assert state["configured"] is False
+    assert state["setup_required"] is True
+    assert state["recommended_next_action"] == "setup"
+    assert KEY not in config.model_dump_json()
+
+
 async def test_client_receives_a_loopback_url_and_not_the_key(config_home):
     seen = []
     result, _ = await run_setup_tool(
@@ -97,18 +110,25 @@ async def test_successful_flow_stores_credential_and_activates_tools(config_home
             await session.initialize()
             before = await session.call_tool("cancel_job", job)
             assert before.isError
-            assert "not configured" in before.content[0].text
+            assert "not connected yet" in before.content[0].text
+            assert "paste an API key" in before.content[0].text
 
             result = await session.call_tool("setup", {})
             text = result.content[0].text
             assert KEY not in text
-            assert "Ready" in text
+            assert "Rapid7 connected successfully" in text
+            assert "Region: eu" in text
+            assert "Writes: enabled" in text
+            assert "list_workflows" in text
+            assert "read-only" in text
 
             config = await session.read_resource("insightconnect://server/config")
             active = json.loads(config.contents[0].text)
             assert active["configured"] is True
             assert active["region"] == "eu"
             assert active["writes_enabled"] is True
+            assert active["setup_required"] is False
+            assert active["recommended_next_action"] == "list_workflows"
             assert KEY not in config.model_dump_json()
 
             after = await session.call_tool("cancel_job", job)
@@ -134,12 +154,19 @@ async def test_timeout_and_bad_submission_store_nothing(config_home, tmp_path):
     assert not credentials_path().exists()
 
 
-async def test_client_without_elicitation_gets_terminal_instructions(config_home):
+async def test_client_without_elicitation_gets_harness_agnostic_configure_fallback(config_home):
     async with stdio_client(parameters(config_home)) as (reader, writer):
         async with ClientSession(reader, writer) as session:
             await session.initialize()
             result = await session.call_tool("setup", {})
-    assert "terminal" in result.content[0].text
+
+    text = result.content[0].text
+    assert "terminal" in text
+    assert "rapid7-insightconnect-mcp configure" in text
+    assert "restart" in text.lower()
+    assert "R7_API_KEY" not in text
+    assert "secret storage" not in text
+    assert "paste" in text.lower()
     assert not credentials_path().exists()
 
 
@@ -149,7 +176,7 @@ async def test_form_only_client_is_never_sent_the_setup_url(config_home, monkeyp
     seen = []
     result, _ = await run_setup_tool(config_home, responder(seen=seen), setup_timeout=2)
     assert seen == []
-    assert "terminal" in result.content[0].text
+    assert "rapid7-insightconnect-mcp configure" in result.content[0].text
     assert not credentials_path().exists()
 
 
