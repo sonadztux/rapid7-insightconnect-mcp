@@ -114,7 +114,8 @@ def run_configure(
     print(f"✓ Region: {region}", file=output)
     print(f"✓ Writes {writes}", file=output)
     print(
-        "\nRestart any already-running MCP client sessions to load the saved settings.", file=output
+        "\nRestart any already-running MCP client sessions to load the saved settings.",
+        file=output,
     )
     return 0
 
