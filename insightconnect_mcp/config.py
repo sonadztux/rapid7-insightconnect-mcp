@@ -3,7 +3,7 @@
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
@@ -12,7 +12,7 @@ Region = Literal["us", "us2", "us3", "eu", "ca", "au", "ap"]
 ENV_SETTINGS = ("R7_API_KEY", "R7_REGION", "R7_ALLOW_WRITES")
 
 
-class ConfigurationSource(str, Enum):
+class ConfigurationSource(StrEnum):
     ENVIRONMENT = "environment"
     STORED = "stored credentials"
     NONE = "none"
