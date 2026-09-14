@@ -41,7 +41,7 @@ class Settings(BaseModel):
         if stored is None:
             raise ValueError(
                 "No credentials found. Call the setup tool, or run "
-                "`rapid7-insightconnect-mcp setup` in a terminal"
+                "`rapid7-insightconnect-mcp configure` in a terminal"
             )
         return cls.model_validate(stored.model_dump())
 
