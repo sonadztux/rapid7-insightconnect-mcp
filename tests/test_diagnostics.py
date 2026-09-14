@@ -5,7 +5,7 @@ import pytest
 from pydantic import SecretStr
 
 from insightconnect_mcp.config import Settings
-from insightconnect_mcp.diagnostics import run_doctor
+from insightconnect_mcp.diagnostics import CheckStatus, collect_diagnostics, run_doctor
 from insightconnect_mcp.storage import credentials_path, save_credentials
 
 KEY = "doctor-secret-key"
@@ -79,6 +79,17 @@ def test_local_doctor_rejects_unsafe_stored_credential_permissions():
     assert KEY not in text
 
 
+def test_collect_diagnostics_returns_structured_checks():
+    save_credentials(Settings(api_key=SecretStr(KEY), region="eu", allow_writes=False))
+    checks = collect_diagnostics()
+    assert checks
+    assert all(check.status in CheckStatus for check in checks)
+    assert any(check.name == "configuration-source" for check in checks)
+    connectivity = next(check for check in checks if check.name == "rapid7-connectivity")
+    assert connectivity.status is CheckStatus.WARN
+    assert "doctor --online" in (connectivity.remediation or "")
+
+
 def test_online_doctor_uses_one_read_only_request():
     save_credentials(Settings(api_key=SecretStr(KEY), region="eu", allow_writes=False))
     calls = []
@@ -98,7 +109,7 @@ def test_online_doctor_uses_one_read_only_request():
     assert KEY not in output.getvalue()
 
 
-def test_online_doctor_sanitizes_auth_failure():
+def test_online_doctor_distinguishes_authentication_failure():
     save_credentials(Settings(api_key=SecretStr(KEY), region="us", allow_writes=False))
 
     def respond(request):
@@ -107,6 +118,37 @@ def test_online_doctor_sanitizes_auth_failure():
     output = io.StringIO()
     assert run_doctor(online=True, output=output, transport=httpx.MockTransport(respond)) == 1
     text = output.getvalue()
+    assert "Authentication failed" in text
     assert "401" in text
+    assert "API key and region" in text
     assert KEY not in text
     assert "rejected" not in text
+
+
+def test_online_doctor_distinguishes_authorization_failure():
+    save_credentials(Settings(api_key=SecretStr(KEY), region="us", allow_writes=False))
+
+    def respond(request):
+        return httpx.Response(403, text="forbidden")
+
+    output = io.StringIO()
+    assert run_doctor(online=True, output=output, transport=httpx.MockTransport(respond)) == 1
+    text = output.getvalue()
+    assert "Authorization failed" in text
+    assert "403" in text
+    assert "permissions" in text
+    assert KEY not in text
+
+
+def test_online_doctor_distinguishes_network_failure():
+    save_credentials(Settings(api_key=SecretStr(KEY), region="us", allow_writes=False))
+
+    def respond(request):
+        raise httpx.ConnectError("network exploded", request=request)
+
+    output = io.StringIO()
+    assert run_doctor(online=True, output=output, transport=httpx.MockTransport(respond)) == 1
+    text = output.getvalue()
+    assert "Connection failed" in text
+    assert "network" in text.lower()
+    assert KEY not in text
