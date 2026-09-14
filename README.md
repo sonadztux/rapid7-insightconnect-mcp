@@ -31,7 +31,7 @@ Rapid7 InsightConnect
 You need:
 
 - an MCP-capable client such as Claude Code, Codex, Hermes Agent, or OpenCode;
-- [`uv`](https://docs.astral.sh/uv/) with Python 3.11+ available;
+- [`uv`](https://docs.astral.sh/uv/) with Python 3.11+ available in a POSIX environment (Linux, macOS, or WSL on Windows);
 - a Rapid7 API key and your organization's Rapid7 region.
 
 Do not put the Rapid7 API key in the MCP registration command or in an assistant conversation.
@@ -291,7 +291,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting and security-sensitiv
 | `Writes are disabled` | Reconfigure and explicitly enable workflow execution/cancellation only when needed. |
 | Unsure what is wrong | Run `uvx rapid7-insightconnect-mcp doctor`; add `--online` only when you want a read-only network/auth check. |
 
-## Desktop apps and PATH
+## Desktop apps, PATH, and Windows
 
 Desktop applications do not always inherit your interactive shell's `PATH`. If a desktop MCP client cannot find `uvx`, use the absolute path returned by:
 
@@ -307,7 +307,7 @@ rapid7-insightconnect-mcp
 
 as its argument.
 
-A native Windows application cannot execute a Linux `uvx` inside WSL directly. In that case either install `uv` on Windows or configure the app to launch the WSL command through `wsl.exe`. Credential storage belongs to whichever operating-system user actually runs the MCP process.
+The hardened credential-storage implementation currently targets POSIX systems. On Windows, run the MCP server inside WSL rather than running it as a native Windows process. A native Windows harness can launch the WSL command through `wsl.exe`; the credential file then belongs to the Linux user inside WSL.
 
 Do not expose the local setup listener on a public interface to work around desktop/WSL localhost differences.
 
