@@ -8,7 +8,7 @@ from typing import IO, Any
 
 import httpx
 
-from .config import Settings
+from .config import ConfigurationSource, resolve_settings
 from .onboarding import verify_credentials
 
 
@@ -23,16 +23,18 @@ def run_doctor(
     print("Rapid7 InsightConnect MCP doctor\n", file=output)
     print(f"Runtime\n  ✓ Version {version('rapid7-insightconnect-mcp')}", file=output)
 
-    try:
-        settings = Settings.load()
-    except ValueError as error:
-        print("\nConfiguration", file=output)
-        print(f"  ✗ {error}", file=output)
+    resolution = resolve_settings()
+    print("\nConfiguration", file=output)
+    print(f"  Source: {resolution.source.value}", file=output)
+    if resolution.settings is None:
+        print(f"  ✗ {resolution.error or 'Rapid7 configuration is unavailable'}", file=output)
         print("\nResult: configuration required", file=output)
         return 1
 
-    print("\nConfiguration", file=output)
+    settings = resolution.settings
     print("  ✓ Credentials configured", file=output)
+    if resolution.source is ConfigurationSource.STORED:
+        print("  ✓ Credential storage validated", file=output)
     print(f"  ✓ Region: {settings.region}", file=output)
     writes = "enabled" if settings.allow_writes else "disabled"
     print(f"  ✓ Writes {writes}", file=output)
