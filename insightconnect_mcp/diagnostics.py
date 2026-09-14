@@ -2,8 +2,9 @@
 
 import asyncio
 import sys
+from collections.abc import Callable
 from importlib.metadata import version
-from typing import IO, Any, Callable
+from typing import IO, Any
 
 import httpx
 
