@@ -4,6 +4,8 @@
 
 Use Rapid7 InsightConnect (Automation) from an MCP-compatible AI assistant. Discover workflows, inspect jobs, read global artifacts, export snippets, and, only when you explicitly enable writes, execute workflows or cancel jobs.
 
+> **Unofficial community project.** This project is independently developed and is not an official Rapid7 product. It is not provided, maintained, endorsed, or supported by Rapid7. References to Rapid7 and InsightConnect are used only to describe compatibility with Rapid7 InsightConnect.
+
 - **Harness-agnostic.** Your MCP client owns registration and lifecycle; this project only needs to be launched as a local stdio MCP server.
 - **Local by design.** There is no hosted middle service.
 - **Read-only by default.** Execution and cancellation remain disabled until you explicitly enable them.
