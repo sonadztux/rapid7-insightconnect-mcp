@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rapid7-insightconnect-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local, safety-first MCP server for Rapid7 InsightConnect / Automation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,6 +37,7 @@ include = [
     "/README.md",
     "/SECURITY.md",
     "/CONTRIBUTING.md",
+    "/RELEASING.md",
     "/pyproject.toml",
     "/uv.lock",
 ]
