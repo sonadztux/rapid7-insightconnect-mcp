@@ -117,3 +117,18 @@ async def test_client_without_elicitation_gets_terminal_instructions(config_home
             result = await session.call_tool("setup", {})
     assert "terminal" in result.content[0].text
     assert not credentials_path().exists()
+
+
+async def test_save_failure_does_not_leak_the_local_filesystem_path(tmp_path):
+    """A plain file where the config directory should be makes mkdir() raise
+    NotADirectoryError; the tool must not forward that OSError's path to the model."""
+    blocker = tmp_path / "occupied"
+    blocker.write_text("not a directory")
+
+    result, _ = await run_setup_tool(blocker, responder(submit={"region": "eu", "api_key": KEY}))
+
+    text = result.content[0].text
+    assert result.isError
+    assert str(blocker) not in text
+    assert KEY not in text
+    assert "Could not save credentials" in text

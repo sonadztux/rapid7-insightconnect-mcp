@@ -14,7 +14,7 @@ from types import TracebackType
 from typing import Any, Self
 from urllib.parse import parse_qs, urlparse
 
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from .config import Region, Settings
 
@@ -80,11 +80,19 @@ def parse_submission(body: bytes) -> Submission:
         raise ValueError(f"Unsupported region: {region}")
     if not key:
         raise ValueError("API key is required")
-    return Submission(
+    submission = Submission(
         region=region,
         api_key=SecretStr(key),
         allow_writes=bool(fields.get("allow_writes")),
     )
+    try:
+        # Settings applies the stricter format check (printable ASCII, no whitespace);
+        # run it now so a bad key re-shows the form instead of spending the one-shot
+        # token on a submission that setup() can only fail on afterward.
+        submission.settings()
+    except ValidationError:
+        raise ValueError("API key must be nonempty printable ASCII without whitespace") from None
+    return submission
 
 
 class OneShotForm:
@@ -114,7 +122,8 @@ class OneShotForm:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self._server.shutdown()
+        # shutdown() blocks until serve_forever exits; keep it off the event loop.
+        await asyncio.get_running_loop().run_in_executor(None, self._server.shutdown)
         self._server.server_close()
 
     async def wait(self) -> Submission | None:
@@ -123,6 +132,8 @@ class OneShotForm:
         return self._submission
 
     def _authorized(self, handler: BaseHTTPRequestHandler) -> bool:
+        if not self.token:
+            return False
         query = parse_qs(urlparse(handler.path).query)
         supplied = (query.get("t") or [""])[0]
         return handler.client_address[0] in {"127.0.0.1", "::1"} and secrets.compare_digest(
@@ -131,6 +142,7 @@ class OneShotForm:
 
     def _accept(self, submission: Submission) -> None:
         self._submission = submission
+        self.token = ""
         self._done.set()
 
     def _handler(self) -> type[BaseHTTPRequestHandler]:
@@ -138,6 +150,7 @@ class OneShotForm:
 
         class Handler(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.0"
+            timeout = 2
 
             def log_message(self, *args: Any) -> None:
                 """Silence request logging; paths carry the single-use token."""
@@ -161,7 +174,14 @@ class OneShotForm:
                 if not form._authorized(self):
                     self._reply(403, "<h1>Forbidden</h1>")
                     return
-                length = min(int(self.headers.get("Content-Length") or 0), MAX_BODY)
+                raw = self.headers.get("Content-Length") or ""
+                try:
+                    length = int(raw)
+                except ValueError:
+                    length = 0
+                # A negative value would make read() block for the whole body instead
+                # of enforcing the cap, since read(-1) means "read until EOF".
+                length = max(0, min(length, MAX_BODY))
                 try:
                     submission = parse_submission(self.rfile.read(length))
                 except ValueError as error:

@@ -101,8 +101,10 @@ SETUP = ToolAnnotations(
 # Read per server start so tests can shorten the window through the child's environment.
 SETUP_TIMEOUT = float(os.environ.get("R7_SETUP_TIMEOUT", "300"))
 TERMINAL_FALLBACK = (
-    "This client cannot open the secure setup page. Run "
-    "`rapid7-insightconnect-mcp setup` in a terminal, then restart this client."
+    "This client cannot open the secure setup page. Run `rapid7-insightconnect-mcp setup` "
+    "in a terminal for a guided walkthrough — it does not save credentials for you. Add the "
+    "R7_API_KEY and R7_REGION it prints to this server's entry in your harness's own secret "
+    "storage, then restart this client."
 )
 
 
@@ -136,7 +138,11 @@ def register_setup_tool(server: FastMCP, runtime: Runtime) -> None:
             message, settings = await collect(ctx, form)
         if settings is None:
             return message or "Setup did not complete."
-        save_credentials(settings)
+        try:
+            save_credentials(settings)
+        except OSError as error:
+            # The raw error includes the full local path; keep that out of the model's view.
+            raise ToolError(f"Could not save credentials to disk: {error.strerror}") from None
         await runtime.configure(settings)
         writes = "enabled" if settings.allow_writes else "disabled"
         return (

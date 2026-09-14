@@ -1,5 +1,6 @@
 import asyncio
 import ipaddress
+import socket
 from urllib.parse import urlparse
 
 import httpx
@@ -79,6 +80,7 @@ async def test_unchecked_write_box_stays_disabled():
         {"region": "mars", "api_key": KEY},
         {"api_key": KEY},
         {"region": "us"},
+        {"region": "us", "api_key": "has a space"},
     ],
 )
 async def test_invalid_submission_reprompts_without_completing(payload):
@@ -98,6 +100,21 @@ async def test_timeout_yields_no_submission():
         assert form.result() is None
 
 
+async def test_token_stops_working_after_first_submission():
+    async with OneShotForm() as form:
+        async with httpx.AsyncClient() as http:
+            first = await http.post(form.url, data={"region": "eu", "api_key": KEY})
+            assert first.status_code == 200
+            second = await http.post(
+                form.url, data={"region": "us", "api_key": KEY, "allow_writes": "on"}
+            )
+            assert second.status_code == 403
+            assert (await http.get(form.url)).status_code == 403
+        submitted = await asyncio.wait_for(form.wait(), timeout=5)
+    assert submitted.region == "eu"
+    assert submitted.allow_writes is False
+
+
 async def test_submitted_values_are_escaped_in_responses():
     async with OneShotForm() as form:
         async with httpx.AsyncClient() as http:
@@ -106,3 +123,28 @@ async def test_submitted_values_are_escaped_in_responses():
             )
     assert "<script>alert(1)</script>" not in response.text
     assert "&lt;script&gt;" in response.text
+
+
+async def test_negative_content_length_does_not_bypass_body_cap():
+    """min(length, MAX_BODY) alone would let a negative Content-Length through, since
+    read(-1) means "read until EOF" instead of "read nothing"."""
+    async with OneShotForm() as form:
+        parsed = urlparse(form.url)
+        path = f"{parsed.path}?{parsed.query}"
+        with socket.create_connection(("127.0.0.1", parsed.port), timeout=5) as sock:
+            sock.sendall(f"POST {path} HTTP/1.0\r\nContent-Length: -1\r\n\r\n".encode())
+            response = sock.recv(4096)
+    assert response.startswith(b"HTTP/1.0 400")
+    assert form.result() is None
+
+
+async def test_shutdown_completes_while_partial_request_is_open():
+    async with OneShotForm(timeout=0.2) as form:
+        port = urlparse(form.url).port
+        stall = socket.create_connection(("127.0.0.1", port))
+        try:
+            stall.send(b"GET / HTTP/1.1\r\n")  # incomplete headers
+            assert await asyncio.wait_for(form.wait(), timeout=5) is None
+        finally:
+            stall.close()
+    # Leaving the context would hang if shutdown blocked on the stalled handler.
