@@ -4,6 +4,7 @@ import asyncio
 import getpass as getpass_module
 import json
 import sys
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import IO, Any, get_args
@@ -46,10 +47,22 @@ def ask_yes_no(input_fn: Callable[[str], str], prompt: str) -> bool:
     return ask(input_fn, prompt).lower() in {"y", "yes"}
 
 
+def read_key(getpass_fn: Callable[[str], str]) -> str:
+    """Typed input must stay hidden; getpass only warns when it cannot disable echo."""
+    prompt = "API key (input hidden): "
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", getpass_module.GetPassWarning)
+        return getpass_fn(prompt)
+
+
 def ask_key(getpass_fn: Callable[[str], str], output: IO[str]) -> SecretStr:
     for _ in range(KEY_ATTEMPTS):
         try:
-            key = getpass_fn("API key (input hidden): ").strip()
+            key = read_key(getpass_fn).strip()
+        except getpass_module.GetPassWarning:
+            raise Aborted(
+                "This terminal cannot keep the input hidden; run setup in a terminal that can"
+            ) from None
         except (EOFError, KeyboardInterrupt):
             raise Aborted("Setup needs an interactive terminal; run it from a shell") from None
         if key:

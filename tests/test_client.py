@@ -163,3 +163,22 @@ async def test_overall_deadline_closes_slow_stream(settings):
         with pytest.raises(ApiError, match="timed out"):
             await client.request("GET", "jobs")
     assert stream.closed
+
+
+async def test_credential_fields_in_upstream_data_are_redacted(settings):
+    """Rapid7 content can carry other people's secrets; the agent must not receive them."""
+    body = {
+        "data": [{"password": "hunter2", "apiKey": "another-key", "name": "keep-me"}],
+        "headers": {"Authorization": "Bearer another-token"},
+        "step": {"connection": {"client_secret": "shhh", "private_key": "----BEGIN----"}},
+        "page": {"index": 0, "size": 10, "nextPageToken": "cursor-1"},
+    }
+    transport = httpx.MockTransport(lambda _: httpx.Response(200, json=body))
+    async with InsightConnectClient(settings, transport=transport) as client:
+        result = await client.request("GET", "jobs")
+    text = json.dumps(result)
+    for secret in ("hunter2", "another-key", "another-token", "shhh", "BEGIN"):
+        assert secret not in text
+    assert result["data"][0]["name"] == "keep-me"
+    # Paging must keep working; only credential-shaped field names are masked.
+    assert result["page"] == {"index": 0, "size": 10, "nextPageToken": "cursor-1"}

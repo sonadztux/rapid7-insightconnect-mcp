@@ -1,5 +1,8 @@
+import getpass
 import io
 import json
+import sys
+import warnings
 from pathlib import Path
 
 import httpx
@@ -96,6 +99,22 @@ def test_key_is_requested_before_verification_consent():
 
     assert run_setup(input_fn=input_fn, getpass_fn=getpass_fn, output=output) == 0
     assert order.index("key") < order.index("verify")
+
+
+@pytest.mark.parametrize("tty", [True, False])
+def test_setup_aborts_when_the_terminal_cannot_hide_input(monkeypatch, tty):
+    """getpass falls back to echoing the key when it cannot disable terminal echo."""
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: tty)
+
+    def echoing(prompt):
+        warnings.warn("Can not control echo on the terminal", getpass.GetPassWarning, stacklevel=2)
+        return KEY
+
+    io_args, output = fake_io(["1", "n"])
+    io_args["getpass_fn"] = echoing
+    assert run_setup(**io_args) == 2
+    assert "hidden" in output.getvalue()
+    assert KEY not in output.getvalue()
 
 
 def test_key_is_never_echoed_or_returned():

@@ -168,6 +168,7 @@ About the setup page:
 - It runs at `http://127.0.0.1` on your machine and closes after you save. Its address includes a one-time token, so don't share it.
 - Your key goes from the page straight to the server and never passes through the chat or a tool call.
 - Keep the assistant's setup request open while you fill in the page. Some clients time out sooner than the page's 5-minute limit.
+- The 5-minute limit covers approving the page and filling it in, not each step separately. If it runs out, call setup again.
 
 The key is saved as plain text, readable only by your user account:
 
@@ -175,7 +176,11 @@ The key is saved as plain text, readable only by your user account:
 ~/.config/rapid7-insightconnect-mcp/credentials.json
 ```
 
-If `XDG_CONFIG_HOME` is set, the file goes to `$XDG_CONFIG_HOME/rapid7-insightconnect-mcp/credentials.json` instead. The folder has mode `0700` and the file `0600`. Every MCP client running as your user shares this one saved account.
+If `XDG_CONFIG_HOME` is an absolute path, the file goes to `$XDG_CONFIG_HOME/rapid7-insightconnect-mcp/credentials.json` instead; relative values are ignored. Successful setup saves the folder with mode `0700` and the file with mode `0600`. MCP clients running as your user with the same configuration path share this saved account.
+
+Saving and loading require a symlink-free directory path. Every ancestor must be owned by your user or root and must not be group- or world-writable; the credential folder itself must belong to your user. Setup refuses unsafe directories without changing their permissions. Loading also refuses a symlinked credential file, a file owned by another user, or a file accessible to other accounts, because it controls execution permission too. Saving atomically replaces the final file, including a final-file symlink, without following it.
+
+Fix ownership and permissions only on directories you control, or choose a trusted absolute `XDG_CONFIG_HOME` path before rerunning setup. Setup cannot repair unsafe ancestry. These filesystem checks require POSIX descriptor-relative operations.
 
 ### Alternative: environment variables
 
@@ -335,6 +340,7 @@ Resources: `insightconnect://server/config` (current settings, never the key), `
 ### Safety and limits
 
 - Rapid7 data is treated as untrusted content, not instructions. Tool results can contain sensitive data, and your MCP client may send them to your AI provider.
+- Your key is masked wherever it appears in a response, and so are fields whose names look like credentials (`password`, `secret`, `apiKey`, `Authorization`, and similar). Treat that as a safety net, not a guarantee: a secret kept in an ordinary field, such as a step's notes, still reaches your assistant.
 - Requests only go to the fixed Rapid7 host for your region, over HTTPS. The server doesn't follow redirects, doesn't use proxy settings, doesn't retry automatically, and caps requests and responses at 2 MiB.
 - If a workflow run times out, it may have started anyway. Check the jobs list before trying again.
 - The saved key is plain text protected by file permissions, not encryption. Keep your client's tool approvals on and use a least-privilege key.

@@ -7,9 +7,12 @@ non-loopback peers, and stops after the first valid submission or the timeout.
 import asyncio
 import html
 import secrets
+import socket
 import threading
+import time
+from contextlib import suppress
 from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import TracebackType
 from typing import Any, Self
 from urllib.parse import parse_qs, urlparse
@@ -76,6 +79,39 @@ class Submission:
         )
 
 
+class Rejected(Exception):
+    """Carries the status to send back for a submission that was not read."""
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+
+
+def read_submission(handler: BaseHTTPRequestHandler) -> Submission:
+    if handler.headers.get_all("Transfer-Encoding") or handler.headers.get_all("Content-Type") != [
+        "application/x-www-form-urlencoded"
+    ]:
+        raise Rejected(400, "Malformed submission")
+    lengths = handler.headers.get_all("Content-Length") or []
+    try:
+        # A negative or conflicting length would make read() run to EOF instead of
+        # enforcing the cap, since read(-1) means "read until EOF".
+        length = int(lengths.pop()) if len(lengths) == 1 else -1
+    except ValueError:
+        length = -1
+    if length < 0:
+        raise Rejected(400, "Malformed submission")
+    if length > MAX_BODY:
+        raise Rejected(413, "Submission is too large")
+    body = handler.rfile.read(length)
+    if len(body) != length:
+        raise Rejected(400, "Incomplete submission")
+    try:
+        return parse_submission(body)
+    except ValueError as error:
+        raise Rejected(400, str(error)) from None
+
+
 def render(error: str = "") -> str:
     options = "".join(
         f'<option value="{region}">{region}</option>'
@@ -92,10 +128,12 @@ def parse_submission(body: bytes) -> Submission:
         raise ValueError(f"Unsupported region: {region}")
     if not key:
         raise ValueError("API key is required")
+    # A checkbox is absent when unticked; a crafted "allow_writes=false" must stay false.
+    writes = (fields.get("allow_writes") or [""])[0].strip().lower()
     submission = Submission(
         region=region,
         api_key=SecretStr(key),
-        allow_writes=bool(fields.get("allow_writes")),
+        allow_writes=writes in {"on", "true", "yes", "1"},
     )
     try:
         # Settings applies the stricter format check (printable ASCII, no whitespace);
@@ -113,8 +151,31 @@ class OneShotForm:
         self.timeout = timeout
         self._submission: Submission | None = None
         self._done = threading.Event()
-        self._server = HTTPServer(("127.0.0.1", 0), self._handler())
+        self._lock = threading.Lock()
+        self._deadline = time.monotonic() + timeout
+        self._connections: set[socket.socket] = set()
+        form = self
+
+        class Server(ThreadingHTTPServer):
+            daemon_threads = False
+
+            def get_request(self) -> tuple[socket.socket, Any]:
+                connection, address = super().get_request()
+                with form._lock:
+                    if not form.remaining():
+                        connection.close()
+                        raise OSError("Setup closed")
+                    form._connections.add(connection)
+                return connection, address
+
+            def shutdown_request(self, request: Any) -> None:
+                with form._lock:
+                    form._connections.discard(request)
+                super().shutdown_request(request)
+
+        self._server = Server(("127.0.0.1", 0), self._handler())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._timer = threading.Timer(timeout, self._expire)
 
     @property
     def url(self) -> str:
@@ -125,7 +186,9 @@ class OneShotForm:
         return self._submission
 
     async def __aenter__(self) -> Self:
+        self._deadline = time.monotonic() + self.timeout
         self._thread.start()
+        self._timer.start()
         return self
 
     async def __aexit__(
@@ -134,28 +197,59 @@ class OneShotForm:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        # shutdown() blocks until serve_forever exits; keep it off the event loop.
-        await asyncio.get_running_loop().run_in_executor(None, self._server.shutdown)
-        self._server.server_close()
+        self._timer.cancel()
+        self._expire()
+        await asyncio.to_thread(self._server.shutdown)
+        await asyncio.to_thread(self._server.server_close)
+        self._thread.join()
+        self._timer.join()
+
+    def _expire(self) -> None:
+        with self._lock:
+            self.token = ""
+            for connection in self._connections:
+                with suppress(OSError):
+                    connection.shutdown(socket.SHUT_RDWR)
+        self._done.set()
+
+    def remaining(self) -> float:
+        """Time left in the window, which covers opening the page as well as submitting."""
+        return max(0.0, self._deadline - time.monotonic())
 
     async def wait(self) -> Submission | None:
         """Block until a valid submission arrives or the window closes."""
-        await asyncio.get_running_loop().run_in_executor(None, self._done.wait, self.timeout)
+        await asyncio.get_running_loop().run_in_executor(None, self._done.wait, self.remaining())
         return self._submission
 
+    def _same_origin(self, handler: BaseHTTPRequestHandler) -> bool:
+        """A browser sent here by DNS rebinding carries a foreign Host or Origin.
+
+        Non-browser clients that omit both headers still need the token.
+        """
+        expected = f"127.0.0.1:{self._server.server_address[1]}"
+        hosts = handler.headers.get_all("Host")
+        origins = handler.headers.get_all("Origin")
+        return hosts in (None, [expected]) and origins in (None, [f"http://{expected}"])
+
     def _authorized(self, handler: BaseHTTPRequestHandler) -> bool:
-        if not self.token:
+        token = self.token
+        if not token or not self.remaining() or not self._same_origin(handler):
             return False
         query = parse_qs(urlparse(handler.path).query)
         supplied = (query.get("t") or [""])[0]
+        # Compare bytes: compare_digest() raises TypeError on non-ASCII text.
         return handler.client_address[0] in {"127.0.0.1", "::1"} and secrets.compare_digest(
-            supplied, self.token
+            supplied.encode(), token.encode()
         )
 
-    def _accept(self, submission: Submission) -> None:
-        self._submission = submission
-        self.token = ""
-        self._done.set()
+    def _accept(self, submission: Submission) -> bool:
+        with self._lock:
+            if not self.token or not self.remaining():
+                self.token = ""
+                return False
+            self.token = ""
+            self._submission = submission
+        return True
 
     def _handler(self) -> type[BaseHTTPRequestHandler]:
         form = self
@@ -166,6 +260,12 @@ class OneShotForm:
 
             def log_message(self, *args: Any) -> None:
                 """Silence request logging; paths carry the single-use token."""
+
+            def send_error(
+                self, code: int, message: str | None = None, explain: str | None = None
+            ) -> None:
+                """Keep the security headers on parser-generated replies (501, 414, ...)."""
+                self._reply(code, f"<h1>{code}</h1>")
 
             def _reply(self, status: int, body: str) -> None:
                 payload = body.encode()
@@ -178,29 +278,27 @@ class OneShotForm:
                 self.wfile.write(payload)
 
             def do_GET(self) -> None:
-                if not form._authorized(self):
-                    self._reply(403, "<h1>Forbidden</h1>")
-                    return
-                self._reply(200, render())
+                authorized = form._authorized(self)
+                self._reply(
+                    200 if authorized else 403, render() if authorized else "<h1>Forbidden</h1>"
+                )
 
             def do_POST(self) -> None:
                 if not form._authorized(self):
                     self._reply(403, "<h1>Forbidden</h1>")
                     return
-                raw = self.headers.get("Content-Length") or ""
                 try:
-                    length = int(raw)
-                except ValueError:
-                    length = 0
-                # A negative value would make read() block for the whole body instead
-                # of enforcing the cap, since read(-1) means "read until EOF".
-                length = max(0, min(length, MAX_BODY))
-                try:
-                    submission = parse_submission(self.rfile.read(length))
-                except ValueError as error:
-                    self._reply(400, render(str(error)))
+                    submission = read_submission(self)
+                except Rejected as rejection:
+                    self._reply(rejection.status, render(str(rejection)))
                     return
-                self._reply(200, DONE)
-                form._accept(submission)
+                accepted = form._accept(submission)
+                try:
+                    self._reply(
+                        200 if accepted else 403, DONE if accepted else "<h1>Forbidden</h1>"
+                    )
+                finally:
+                    if accepted:
+                        form._done.set()
 
         return Handler

@@ -1,5 +1,6 @@
 """End-to-end onboarding through the MCP session, standing in for an MCP client."""
 
+import asyncio
 import json
 import os
 import sys
@@ -11,6 +12,8 @@ from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
 from mcp.shared.context import RequestContext
 
+from insightconnect_mcp.server import collect
+from insightconnect_mcp.setup_form import OneShotForm
 from insightconnect_mcp.storage import credentials_path
 
 KEY = "client-flow-key"
@@ -45,6 +48,19 @@ def responder(action="accept", submit=None, seen=None):
 def config_home(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     return tmp_path
+
+
+async def test_setup_stops_waiting_when_the_client_never_answers():
+    """An unanswered elicitation would otherwise hold the listener and token open."""
+
+    class Silent:
+        async def elicit_url(self, **_kwargs):
+            await asyncio.sleep(30)
+
+    async with OneShotForm(timeout=0.2) as form:
+        message, settings = await asyncio.wait_for(collect(Silent(), form), timeout=5)
+    assert settings is None
+    assert "timed out" in message
 
 
 async def run_setup_tool(config_home, callback, setup_timeout=None):

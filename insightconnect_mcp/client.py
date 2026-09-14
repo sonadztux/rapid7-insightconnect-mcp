@@ -11,6 +11,20 @@ import httpx
 from .config import Settings
 
 MAX_BYTES = 2 * 1024 * 1024
+REDACTED = "[REDACTED]"
+# Rapid7 content (workflow steps, connections, job output) can carry credentials that are
+# not this server's own key. Mask credential-shaped field names so they never reach the
+# model; paging fields such as nextPageToken stay readable.
+CREDENTIAL_FIELD = re.compile(
+    r"password|passwd|secret|credential|authorization|bearer"
+    r"|(?:api|access|refresh|auth|session)[ _-]?token"
+    r"|(?:api|private|public|access|encryption)[ _-]?key",
+    re.IGNORECASE,
+)
+
+
+def _is_credential(key: Any) -> bool:
+    return isinstance(key, str) and CREDENTIAL_FIELD.search(key) is not None
 
 
 class ApiError(Exception):
@@ -123,9 +137,12 @@ class InsightConnectClient:
 
     def _redact(self, value: Any) -> Any:
         if isinstance(value, str):
-            return value.replace(self.settings.api_key.get_secret_value(), "[REDACTED]")
+            return value.replace(self.settings.api_key.get_secret_value(), REDACTED)
         if isinstance(value, list):
             return [self._redact(item) for item in value]
         if isinstance(value, dict):
-            return {self._redact(key): self._redact(item) for key, item in value.items()}
+            return {
+                self._redact(key): REDACTED if _is_credential(key) else self._redact(item)
+                for key, item in value.items()
+            }
         return value

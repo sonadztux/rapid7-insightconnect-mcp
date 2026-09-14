@@ -20,12 +20,11 @@ def run(*args, stdin=""):
     )
 
 
-def test_setup_subcommand_runs_wizard_without_credentials():
+def test_setup_subcommand_refuses_echoing_pipe_fallback():
     result = run("setup", stdin="4\nn\nplaceholder-key\nn\n")
-    assert result.returncode == 0
-    assert '"R7_REGION": "eu"' in result.stdout
-    assert "placeholder-key" not in result.stdout
-    assert "no request was made" in result.stdout
+    assert result.returncode == 2
+    assert "hidden" in result.stdout
+    assert "placeholder-key" not in result.stdout + result.stderr
 
 
 def test_setup_wizard_declines_without_a_terminal():

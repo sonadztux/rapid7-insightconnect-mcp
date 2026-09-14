@@ -55,6 +55,7 @@ async def test_standard_stdio_discovery_and_resources(entry_point):
             assert '"writes_enabled": false' in config.contents[0].text
             result = await session.call_tool("get_job", {"job_id": "not-a-uuid"})
             assert result.isError
+            assert "not-a-uuid" not in result.model_dump_json()
             denied = await session.call_tool(
                 "cancel_job",
                 {
