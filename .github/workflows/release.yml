@@ -2,6 +2,11 @@ name: release
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - pyproject.toml
+      - .github/workflows/release.yml
 
 permissions:
   contents: write
@@ -34,20 +39,24 @@ jobs:
           TAG="v${VERSION}"
           echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
           echo "TAG=${TAG}" >> "${GITHUB_ENV}"
-      - name: Refuse an existing tag or release
+      - name: Check whether this version is already released
+        id: release_state
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Tag ${TAG} already exists" >&2
-            exit 1
-          fi
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "Release ${TAG} already exists" >&2
+            echo "${TAG} is already released; nothing to do."
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} exists without a GitHub Release; refusing to guess intent." >&2
             exit 1
           fi
+          echo "skip=false" >> "${GITHUB_OUTPUT}"
       - name: Create GitHub release
+        if: steps.release_state.outputs.skip != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,6 +66,7 @@ jobs:
             --title "${TAG}" \
             --generate-notes
       - name: Dispatch trusted PyPI publishing on the release tag
+        if: steps.release_state.outputs.skip != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
