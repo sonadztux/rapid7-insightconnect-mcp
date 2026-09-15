@@ -4,8 +4,8 @@ from .client import InsightConnectClient
 from .config import Settings
 
 UNCONFIGURED = (
-    "Rapid7 credentials are not configured. Call the setup tool to enter them in a "
-    "secure local form, or run `rapid7-insightconnect-mcp setup` in a terminal."
+    "Rapid7 is not configured. Call the setup tool before using Rapid7 tools. "
+    "Never ask the user to paste an API key into chat."
 )
 
 

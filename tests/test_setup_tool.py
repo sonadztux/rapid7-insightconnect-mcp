@@ -103,10 +103,13 @@ async def test_successful_flow_stores_credential_and_activates_tools(config_home
             text = result.content[0].text
             assert KEY not in text
             assert "Ready" in text
+            assert "list_workflows" in text
 
             config = await session.read_resource("insightconnect://server/config")
             active = json.loads(config.contents[0].text)
             assert active["configured"] is True
+            assert active["setup_required"] is False
+            assert active["recommended_next_action"] == "list_workflows"
             assert active["region"] == "eu"
             assert active["writes_enabled"] is True
             assert KEY not in config.model_dump_json()
@@ -140,6 +143,8 @@ async def test_client_without_elicitation_gets_terminal_instructions(config_home
             await session.initialize()
             result = await session.call_tool("setup", {})
     assert "terminal" in result.content[0].text
+    assert "uvx rapid7-insightconnect-mcp configure" in result.content[0].text
+    assert "restart" in result.content[0].text.lower()
     assert not credentials_path().exists()
 
 
@@ -150,6 +155,8 @@ async def test_form_only_client_is_never_sent_the_setup_url(config_home, monkeyp
     result, _ = await run_setup_tool(config_home, responder(seen=seen), setup_timeout=2)
     assert seen == []
     assert "terminal" in result.content[0].text
+    assert "uvx rapid7-insightconnect-mcp configure" in result.content[0].text
+    assert "restart" in result.content[0].text.lower()
     assert not credentials_path().exists()
 
 

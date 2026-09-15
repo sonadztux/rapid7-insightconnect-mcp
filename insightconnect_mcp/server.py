@@ -18,9 +18,9 @@ from pydantic import Field, StrictBool, ValidationError
 
 from .client import ApiError, InsightConnectClient
 from .config import Settings
+from .onboarding import persist_settings, summary_of
 from .runtime import NotConfigured, Runtime
 from .setup_form import OneShotForm
-from .storage import save_credentials
 
 Offset = Annotated[int, Field(ge=0, le=9223372036854775807, strict=True)]
 Limit = Annotated[int, Field(ge=1, le=30, strict=True)]
@@ -64,7 +64,13 @@ def create_server(
             "Workflow execution may trigger external actions. Obtain user approval before "
             "setting confirm=true. Never retry a mutation automatically after an uncertain "
             "outcome. If tools report missing credentials, call setup; never ask the user to "
-            "paste an API key into the conversation."
+            "paste an API key into the conversation. After setup, verify access with a small "
+            "read-only list_workflows request. "
+            + (
+                "Rapid7 is not configured. Call the setup tool to connect Rapid7."
+                if settings is None
+                else "Rapid7 is configured."
+            )
         ),
         lifespan=lifespan,
         log_level="WARNING",
@@ -126,10 +132,9 @@ def setup_timeout(environ: Mapping[str, str] | None = None) -> float:
 # Read per server start so tests can shorten the window through the child's environment.
 SETUP_TIMEOUT = setup_timeout()
 TERMINAL_FALLBACK = (
-    "This client cannot open the secure setup page. Run `rapid7-insightconnect-mcp setup` "
-    "in a terminal for a guided walkthrough — it does not save credentials for you. Add the "
-    "R7_API_KEY and R7_REGION it prints to this server's entry in your MCP client's own secret "
-    "storage, then restart this client."
+    "This MCP client cannot open the local Rapid7 setup page. Run "
+    "`uvx rapid7-insightconnect-mcp configure` in a terminal, then restart this MCP "
+    "client/session. Never paste an API key into chat."
 )
 
 
@@ -183,15 +188,19 @@ def register_setup_tool(server: FastMCP, runtime: Runtime) -> None:
         if settings is None:
             return message or "Setup did not complete."
         try:
-            save_credentials(settings)
-        except OSError as error:
-            # The raw error includes the full local path; keep that out of the model's view.
-            raise ToolError(f"Could not save credentials to disk: {error.strerror}") from None
+            persist_settings(settings)
+        except (OSError, ValueError):
+            raise ToolError(
+                "Could not save credentials securely; check storage permissions"
+            ) from None
         await runtime.configure(settings)
-        writes = "enabled" if settings.allow_writes else "disabled"
+        summary = summary_of(settings)
+        writes = "enabled" if summary.writes_enabled else "disabled"
         return (
-            f"Ready. Region {settings.region}, execution and cancellation {writes}. "
-            "The key is stored with owner-only permissions; tools are active now."
+            f"Ready. Region {summary.region}, execution and cancellation {writes}. "
+            "The key is stored with owner-only permissions; tools are active now. "
+            f"Use {summary.recommended_next_action} with a small limit to verify access. "
+            "Do not enable writes unless the user needs execution or cancellation."
         )
 
 
@@ -301,6 +310,8 @@ def register_resources(server: FastMCP, runtime: Runtime) -> None:
         return json.dumps(
             {
                 "configured": runtime.configured,
+                "setup_required": not runtime.configured,
+                "recommended_next_action": "list_workflows" if runtime.configured else "setup",
                 "region": settings.region if settings else None,
                 "base_url": settings.base_url if settings else None,
                 "writes_enabled": settings.allow_writes if settings else False,
