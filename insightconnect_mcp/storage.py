@@ -106,7 +106,8 @@ def _read_private(path: Path) -> str:
 
 def load_credentials() -> Settings | None:
     path = credentials_path()
-    if not path.exists():
+    # A dangling symlink must be treated as an unsafe credential path, not as absence.
+    if not os.path.lexists(path):
         return None
     try:
         content = _read_private(path)
