@@ -39,12 +39,16 @@ def test_release_workflow_uses_oidc_and_pinned_pypi_action():
     assert "password:" not in workflow
 
 
-def test_release_orchestrator_creates_release_and_dispatches_publish_on_tag():
+def test_release_orchestrator_waits_for_successful_main_ci():
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
     assert "workflow_dispatch:" in workflow
-    assert "push:" in workflow
-    assert "branches: [main]" in workflow
-    assert "pyproject.toml" in workflow
+    assert "workflow_run:" in workflow
+    assert "workflows: [checks]" in workflow
+    assert "types: [completed]" in workflow
+    assert "github.event.workflow_run.conclusion == 'success'" in workflow
+    assert "github.event.workflow_run.head_branch == 'main'" in workflow
+    assert "github.event.workflow_run.head_sha" in workflow
+    assert "push:" not in workflow
     assert "contents: write" in workflow
     assert "actions: write" in workflow
     assert "gh release create" in workflow
