@@ -95,6 +95,6 @@ def resolve_settings(environ: Mapping[str, str] | None = None) -> ConfigurationR
             ConfigurationSource.NONE,
             None,
             "No credentials found. Call the setup tool, or run "
-            "`rapid7-insightconnect-mcp configure` in a terminal",
+            "`uvx rapid7-insightconnect-mcp configure` in a terminal",
         )
     return ConfigurationResolution(ConfigurationSource.STORED, stored)

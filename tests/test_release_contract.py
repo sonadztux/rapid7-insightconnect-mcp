@@ -4,9 +4,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_release_version_is_0_2_0():
+def test_release_version_is_0_2_1_and_lock_matches():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert project["project"]["version"] == "0.2.0"
+    assert project["project"]["version"] == "0.2.1"
+
+    lock = (ROOT / "uv.lock").read_text()
+    assert 'name = "rapid7-insightconnect-mcp"\nversion = "0.2.1"' in lock
 
 
 def test_release_declares_and_packages_mit_license():
@@ -24,6 +27,9 @@ def test_readme_primary_install_is_uvx_and_harness_owned():
     assert "codex mcp add" in readme
     assert "Connect my Rapid7 InsightConnect account" in readme
     assert "rapid7-insightconnect-mcp doctor" in readme
+    assert "Do not run `uvx rapid7-insightconnect-mcp` directly in a terminal" in readme
+    assert "uvx rapid7-insightconnect-mcp --version" in readme
+    assert "If your MCP client supports opening local setup URLs" in readme
     assert "package is not currently published on PyPI" not in readme
     assert "prints a configuration example" not in readme
     assert "does **not** save the credential" not in readme

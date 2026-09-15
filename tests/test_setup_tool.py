@@ -111,6 +111,7 @@ async def test_successful_flow_stores_credential_and_activates_tools(config_home
             before = await session.call_tool("cancel_job", job)
             assert before.isError
             assert "not connected yet" in before.content[0].text
+            assert "`uvx rapid7-insightconnect-mcp configure`" in before.content[0].text
             assert "paste an API key" in before.content[0].text
 
             result = await session.call_tool("setup", {})
@@ -154,7 +155,7 @@ async def test_timeout_and_bad_submission_store_nothing(config_home, tmp_path):
     assert not credentials_path().exists()
 
 
-async def test_client_without_elicitation_gets_harness_agnostic_configure_fallback(config_home):
+async def test_client_without_elicitation_gets_copy_paste_uvx_configure_fallback(config_home):
     async with stdio_client(parameters(config_home)) as (reader, writer):
         async with ClientSession(reader, writer) as session:
             await session.initialize()
@@ -162,7 +163,7 @@ async def test_client_without_elicitation_gets_harness_agnostic_configure_fallba
 
     text = result.content[0].text
     assert "terminal" in text
-    assert "rapid7-insightconnect-mcp configure" in text
+    assert "`uvx rapid7-insightconnect-mcp configure`" in text
     assert "restart" in text.lower()
     assert "R7_API_KEY" not in text
     assert "secret storage" not in text
@@ -176,7 +177,7 @@ async def test_form_only_client_is_never_sent_the_setup_url(config_home, monkeyp
     seen = []
     result, _ = await run_setup_tool(config_home, responder(seen=seen), setup_timeout=2)
     assert seen == []
-    assert "rapid7-insightconnect-mcp configure" in result.content[0].text
+    assert "`uvx rapid7-insightconnect-mcp configure`" in result.content[0].text
     assert not credentials_path().exists()
 
 

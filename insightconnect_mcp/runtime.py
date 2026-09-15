@@ -6,7 +6,8 @@ from .config import Settings
 UNCONFIGURED = (
     "Rapid7 is not connected yet. Call the `setup` tool before using Rapid7 tools. "
     "Never ask the user to paste an API key into chat. If the client cannot open the setup "
-    "page, run `rapid7-insightconnect-mcp configure` in a terminal and restart the MCP session."
+    "page, run `uvx rapid7-insightconnect-mcp configure` in a terminal and restart the MCP "
+    "session."
 )
 
 
