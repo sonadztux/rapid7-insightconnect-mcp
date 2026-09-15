@@ -24,6 +24,8 @@ def test_readme_primary_install_is_uvx_and_harness_owned():
     assert "codex mcp add" in readme
     assert "Connect my Rapid7 InsightConnect account" in readme
     assert "rapid7-insightconnect-mcp doctor" in readme
+    assert "Do not run `uvx rapid7-insightconnect-mcp` directly in a terminal" in readme
+    assert "uvx rapid7-insightconnect-mcp --version" in readme
     assert "package is not currently published on PyPI" not in readme
     assert "prints a configuration example" not in readme
     assert "does **not** save the credential" not in readme
