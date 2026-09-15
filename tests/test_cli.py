@@ -10,8 +10,8 @@ CLEAN_ENV = {key: value for key, value in os.environ.items() if not key.startswi
 
 @pytest.fixture(autouse=True)
 def isolated_config(tmp_path, monkeypatch):
-    """Keep the subprocess away from the developer's real stored credential."""
-    monkeypatch.setitem(CLEAN_ENV, "XDG_CONFIG_HOME", str(tmp_path))
+    """Keep subprocesses away from the developer's real stored credential."""
+    monkeypatch.setitem(CLEAN_ENV, "XDG_CONFIG_HOME", str(tmp_path / "config"))
 
 
 def run(*args, stdin=""):
@@ -20,25 +20,57 @@ def run(*args, stdin=""):
     )
 
 
-def test_setup_subcommand_refuses_echoing_pipe_fallback():
-    result = run("setup", stdin="4\nn\nplaceholder-key\nn\n")
+def test_configure_refuses_echoing_pipe_fallback():
+    result = run("configure", stdin="4\nn\nplaceholder-key\nn\n")
     assert result.returncode == 2
     assert "hidden" in result.stdout
     assert "placeholder-key" not in result.stdout + result.stderr
 
 
-def test_setup_wizard_declines_without_a_terminal():
-    result = run("setup", stdin="")
+def test_setup_alias_points_to_configure_and_refuses_non_tty_key_input():
+    result = run("setup", stdin="4\nn\nplaceholder-key\nn\n")
+    assert result.returncode == 2
+    assert "renamed to `configure`" in result.stderr
+    assert "placeholder-key" not in result.stdout + result.stderr
+
+
+def test_configure_declines_without_an_interactive_terminal():
+    result = run("configure", stdin="")
     assert result.returncode == 2
     assert "interactive terminal" in result.stdout
 
 
-@pytest.mark.parametrize("args", [("--help",), ("help",), ("bogus",)])
-def test_usage_mentions_both_modes(args):
+@pytest.mark.parametrize("args", [("--help",), ("help",)])
+def test_help_describes_harness_agnostic_commands(args):
     result = run(*args)
-    assert "setup" in result.stdout + result.stderr
-    assert "needs R7_" not in result.stdout + result.stderr
-    assert result.returncode == (0 if args[0] in {"--help", "help"} else 2)
+    text = result.stdout + result.stderr
+    assert result.returncode == 0
+    assert "configure" in text
+    assert "doctor" in text
+    assert "--version" in text
+    assert "MCP client's own MCP" in text
+
+
+def test_version_prints_package_version():
+    result = run("--version")
+    assert result.returncode == 0
+    assert result.stdout.strip()
+    assert "Rapid7" not in result.stderr
+
+
+@pytest.mark.parametrize("args", [("bogus",), ("doctor", "--wat"), ("configure", "extra")])
+def test_invalid_cli_arguments_return_two(args):
+    result = run(*args)
+    assert result.returncode == 2
+    assert "Unknown or invalid arguments" in result.stderr
+
+
+def test_doctor_is_local_and_reports_missing_configuration():
+    result = run("doctor")
+    assert result.returncode == 1
+    assert "doctor" in result.stdout
+    assert "configuration required" in result.stdout
+    assert "--online" not in result.stderr
 
 
 @pytest.mark.parametrize(
@@ -65,5 +97,7 @@ def test_setup_timeout_falls_back_on_unusable_values(raw, expected):
 def test_server_starts_unconfigured_and_names_the_setup_route():
     result = run()
     assert result.returncode == 0
-    assert "setup" in result.stderr
+    assert "setup tool" in result.stderr
+    assert "rapid7-insightconnect-mcp configure" in result.stderr
+    assert "rapid7-insightconnect-mcp setup" not in result.stderr
     assert "R7_API_KEY" not in result.stderr

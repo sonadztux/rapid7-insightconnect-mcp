@@ -126,10 +126,9 @@ def setup_timeout(environ: Mapping[str, str] | None = None) -> float:
 # Read per server start so tests can shorten the window through the child's environment.
 SETUP_TIMEOUT = setup_timeout()
 TERMINAL_FALLBACK = (
-    "This client cannot open the secure setup page. Run `rapid7-insightconnect-mcp setup` "
-    "in a terminal for a guided walkthrough — it does not save credentials for you. Add the "
-    "R7_API_KEY and R7_REGION it prints to this server's entry in your MCP client's own secret "
-    "storage, then restart this client."
+    "This MCP client cannot open the local Rapid7 setup page. Run "
+    "`rapid7-insightconnect-mcp configure` in a terminal to save Rapid7 credentials securely, "
+    "then restart this MCP client or session. Never paste the API key into chat."
 )
 
 
@@ -190,8 +189,10 @@ def register_setup_tool(server: FastMCP, runtime: Runtime) -> None:
         await runtime.configure(settings)
         writes = "enabled" if settings.allow_writes else "disabled"
         return (
-            f"Ready. Region {settings.region}, execution and cancellation {writes}. "
-            "The key is stored with owner-only permissions; tools are active now."
+            "Rapid7 connected successfully.\n\n"
+            f"Region: {settings.region}\n"
+            f"Writes: {writes}\n\n"
+            "Use a read-only tool such as `list_workflows` to verify access."
         )
 
 
@@ -298,13 +299,16 @@ def register_resources(server: FastMCP, runtime: Runtime) -> None:
     def config_resource() -> str:
         """Non-secret local configuration and safety policy."""
         settings = runtime.settings
+        configured = runtime.configured
         return json.dumps(
             {
-                "configured": runtime.configured,
+                "configured": configured,
                 "region": settings.region if settings else None,
                 "base_url": settings.base_url if settings else None,
                 "writes_enabled": settings.allow_writes if settings else False,
                 "transport": "stdio",
+                "setup_required": not configured,
+                "recommended_next_action": "list_workflows" if configured else "setup",
                 "api_documentation": (
                     "https://docs.rapid7.com/insightconnect/insightconnect-rest-api/"
                 ),
