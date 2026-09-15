@@ -1,10 +1,12 @@
 """Shared onboarding logic used by both the CLI configure command and the MCP setup tool."""
 
+import asyncio
 import getpass
 import io
 import os
 
 import httpx
+import pytest
 from pydantic import SecretStr
 
 from insightconnect_mcp.config import Settings
@@ -17,6 +19,49 @@ from insightconnect_mcp.onboarding import (
 )
 
 KEY = "onboarding-secret-key"
+
+
+def test_verification_defaults_yes(tmp_path, monkeypatch):
+    saved_settings(tmp_path, monkeypatch)
+    replies = iter(["", "", ""])
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(200, json={})
+
+    assert (
+        configure_interactively(
+            input_fn=lambda _: next(replies),
+            getpass_fn=lambda _: KEY,
+            output=io.StringIO(),
+            transport=transport(respond),
+        )
+        == 0
+    )
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("failure", ["validation", "storage"])
+def test_configure_failure_is_sanitized(tmp_path, monkeypatch, failure):
+    saved_settings(tmp_path, monkeypatch)
+    if failure == "storage":
+
+        def fail(settings):
+            raise OSError(KEY)
+
+        monkeypatch.setattr("insightconnect_mcp.onboarding.persist_settings", fail)
+    replies = iter(["1", "n", "n"])
+    output = io.StringIO()
+    assert (
+        configure_interactively(
+            input_fn=lambda _: next(replies),
+            getpass_fn=lambda _: KEY + ("\ninvalid" if failure == "validation" else ""),
+            output=output,
+        )
+        == 1
+    )
+    assert KEY not in output.getvalue()
 
 
 def transport(handler):
@@ -45,7 +90,7 @@ def test_verify_credentials_success_is_read_only():
         return httpx.Response(200, json={"data": {"workflows": [], "meta": {"total": 0}}})
 
     settings = Settings(api_key=SecretStr(KEY), region="eu")
-    failure = verify_credentials(settings, transport=transport(respond))
+    failure = asyncio.run(verify_credentials(settings, transport=transport(respond)))
     assert failure is None
     assert calls[0].method == "GET"
     assert calls[0].url.path == "/connect/v2/workflows"
@@ -57,7 +102,7 @@ def test_verify_credentials_reports_sanitized_error_without_key():
         return httpx.Response(401, text=f"{KEY} rejected by upstream")
 
     settings = Settings(api_key=SecretStr(KEY), region="us")
-    failure = verify_credentials(settings, transport=transport(respond))
+    failure = asyncio.run(verify_credentials(settings, transport=transport(respond)))
     assert failure is not None
     assert "401" in failure
     assert KEY not in failure
