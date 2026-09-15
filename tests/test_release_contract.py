@@ -29,6 +29,7 @@ def test_readme_primary_install_is_uvx_and_harness_owned():
     assert "rapid7-insightconnect-mcp doctor" in readme
     assert "Do not run `uvx rapid7-insightconnect-mcp` directly in a terminal" in readme
     assert "uvx rapid7-insightconnect-mcp --version" in readme
+    assert "If your MCP client supports opening local setup URLs" in readme
     assert "package is not currently published on PyPI" not in readme
     assert "prints a configuration example" not in readme
     assert "does **not** save the credential" not in readme
