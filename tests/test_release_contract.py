@@ -42,9 +42,13 @@ def test_release_workflow_uses_oidc_and_pinned_pypi_action():
 def test_release_orchestrator_creates_release_and_dispatches_publish_on_tag():
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
     assert "workflow_dispatch:" in workflow
+    assert "push:" in workflow
+    assert "branches: [main]" in workflow
+    assert "pyproject.toml" in workflow
     assert "contents: write" in workflow
     assert "actions: write" in workflow
     assert "gh release create" in workflow
     assert "gh workflow run publish.yml" in workflow
     assert '--ref "${TAG}"' in workflow
     assert "v${VERSION}" in workflow
+    assert "already released" in workflow
