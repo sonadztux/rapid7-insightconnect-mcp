@@ -189,3 +189,7 @@ uv build
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance and [RELEASING.md](RELEASING.md) for the PyPI release process.
+
+## License
+
+Licensed under the [MIT License](LICENSE.md).
