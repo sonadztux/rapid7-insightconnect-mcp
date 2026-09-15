@@ -15,11 +15,13 @@ Use Rapid7 InsightConnect from an MCP-compatible AI assistant to find workflows,
 
 You need an MCP-capable client, [`uv`](https://docs.astral.sh/uv/) with Python 3.11+, and a Rapid7 API key.
 
-The MCP executable is always:
+First, verify that the published package runs:
 
 ```sh
-uvx rapid7-insightconnect-mcp
+uvx rapid7-insightconnect-mcp --version
 ```
+
+Do not run `uvx rapid7-insightconnect-mcp` directly in a terminal. The bare command starts the stdio MCP server and is meant to be launched by your MCP client, not used as an interactive setup command.
 
 ### 1. Add it to your AI client
 
