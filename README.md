@@ -176,7 +176,7 @@ End users should prefer `uvx`. Contributors can install from source:
 ```sh
 git clone https://github.com/sonadztux/rapid7-insightconnect-mcp.git
 cd rapid7-insightconnect-mcp
-uv sync --frozen
+uv sync --frozen --extra dev
 ```
 
 Run the same checks as CI:
