@@ -51,6 +51,8 @@ def test_local_doctor_reports_environment_source_without_claiming_storage_valida
     assert "Source: environment" in text
     assert "Region: us2" in text
     assert "Credential storage validated" not in text
+    assert "Environment configuration is active" in text
+    assert "takes precedence over stored credentials" in text
     assert KEY not in text
 
 
