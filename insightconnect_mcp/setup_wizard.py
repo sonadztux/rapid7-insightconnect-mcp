@@ -29,22 +29,27 @@ def ask(input_fn: Callable[[str], str], prompt: str) -> str:
 
 
 def ask_region(input_fn: Callable[[str], str], output: IO[str]) -> str:
+    choices = {str(index): region for index, region in enumerate(REGIONS, start=1)}
     for index, region in enumerate(REGIONS, start=1):
         print(f"  {index}) {region}", file=output)
     while True:
         answer = ask(input_fn, "Region number [1]: ")
         if not answer:
             return REGIONS[0]
-        if answer.isdigit() and 1 <= int(answer) <= len(REGIONS):
-            return REGIONS[int(answer) - 1]
+        if answer in choices:
+            return choices[answer]
         print("  Enter a listed number.", file=output)
 
 
 def ask_yes_no(input_fn: Callable[[str], str], prompt: str, *, default: bool = False) -> bool:
-    answer = ask(input_fn, prompt).lower()
-    if not answer:
-        return default
-    return answer in {"y", "yes"}
+    while True:
+        answer = ask(input_fn, prompt).lower()
+        if not answer:
+            return default
+        if answer in {"y", "yes"}:
+            return True
+        if answer in {"n", "no"}:
+            return False
 
 
 def read_key(getpass_fn: Callable[[str], str]) -> str:
