@@ -77,12 +77,15 @@ def test_invalid_region_reprompts(bad):
 def test_empty_key_reprompts_then_aborts():
     output = io.StringIO()
     attempts = []
+    replies = iter(["1", "n"])
 
     def getpass_fn(prompt):
         attempts.append(prompt)
         return "   "
 
-    code = run_configure(input_fn=lambda prompt: "1", getpass_fn=getpass_fn, output=output)
+    code = run_configure(
+        input_fn=lambda prompt: next(replies), getpass_fn=getpass_fn, output=output
+    )
     assert code == 2
     assert len(attempts) == 3
     assert "no API key" in output.getvalue()
