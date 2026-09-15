@@ -127,8 +127,8 @@ def setup_timeout(environ: Mapping[str, str] | None = None) -> float:
 SETUP_TIMEOUT = setup_timeout()
 TERMINAL_FALLBACK = (
     "This MCP client cannot open the local Rapid7 setup page. Run "
-    "`rapid7-insightconnect-mcp configure` in a terminal to save Rapid7 credentials securely, "
-    "then restart this MCP client or session. Never paste the API key into chat."
+    "`uvx rapid7-insightconnect-mcp configure` in a terminal to save Rapid7 credentials "
+    "securely, then restart this MCP client or session. Never paste the API key into chat."
 )
 
 
