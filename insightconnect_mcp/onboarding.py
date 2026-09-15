@@ -1,7 +1,7 @@
 """Shared Rapid7 onboarding logic for the CLI `configure` command and the MCP setup tool.
 
-The API key is held only in memory: never printed, never logged, never placed in
-harness-specific configuration.
+The API key goes only to secure local storage and Rapid7: never printed, logged,
+or placed in harness-specific configuration.
 """
 
 import asyncio
@@ -43,20 +43,16 @@ def summary_of(settings: Settings) -> ConfigurationSummary:
     )
 
 
-def verify_credentials(
+async def verify_credentials(
     settings: Settings, transport: httpx.AsyncBaseTransport | None = None
 ) -> str | None:
-    """Read-only probe using the user's own credential. Returns an error message or None."""
-
-    async def probe() -> str | None:
-        async with InsightConnectClient(settings, transport=transport) as client:
-            try:
-                await client.request("GET", "connect/v2/workflows", params={"limit": 1})
-            except ApiError as error:
-                return str(error)
-        return None
-
-    return asyncio.run(probe())
+    """Read-only probe using the secure client; returns only sanitized failures."""
+    async with InsightConnectClient(settings, transport=transport) as client:
+        try:
+            await client.request("GET", "connect/v2/workflows", params={"limit": 1})
+        except ApiError as error:
+            return str(error)
+    return None
 
 
 def persist_settings(settings: Settings) -> Path:
@@ -71,8 +67,15 @@ def ask(input_fn: Callable[[str], str], prompt: str) -> str:
         raise Aborted("Configuration needs an interactive terminal; run it from a shell") from None
 
 
-def ask_yes_no(input_fn: Callable[[str], str], prompt: str) -> bool:
-    return ask(input_fn, prompt).lower() in {"y", "yes"}
+def ask_yes_no(input_fn: Callable[[str], str], prompt: str, *, default: bool = False) -> bool:
+    while True:
+        answer = ask(input_fn, prompt).lower()
+        if not answer:
+            return default
+        if answer in {"y", "yes"}:
+            return True
+        if answer in {"n", "no"}:
+            return False
 
 
 def read_key(getpass_fn: Callable[[str], str]) -> str:
@@ -122,20 +125,35 @@ def configure_interactively(
             if not answer:
                 region = REGIONS[0]
                 break
-            if answer.isdigit() and 1 <= int(answer) <= len(REGIONS):
+            # Match the printed labels literally: str.isdigit() also accepts non-ASCII
+            # digits, and int() rejects very long digit strings outright.
+            if answer in {str(index) for index in range(1, len(REGIONS) + 1)}:
                 region = REGIONS[int(answer) - 1]
                 break
             print("  Enter a listed number.", file=output)
         allow_writes = ask_yes_no(input_fn, "Allow workflow execution and cancellation? [y/N]: ")
         api_key = ask_key(getpass_fn, output)
-        check = ask_yes_no(input_fn, "Verify credentials with Rapid7? [Y/n]: ")
+        check = ask_yes_no(input_fn, "Verify credentials with Rapid7? [Y/n]: ", default=True)
     except Aborted as error:
         print(f"\n{error}.", file=output)
         return 2
 
-    settings = Settings(api_key=api_key, region=region, allow_writes=allow_writes)  # type: ignore[arg-type]
+    try:
+        settings = Settings(api_key=api_key, region=region, allow_writes=allow_writes)  # type: ignore[arg-type]
+    except ValueError:
+        print("Invalid credential configuration; nothing was saved.", file=output)
+        return 1
+    return finish_configuration(settings, check, output, transport)
+
+
+def finish_configuration(
+    settings: Settings,
+    check: bool,
+    output: IO[str],
+    transport: httpx.AsyncBaseTransport | None,
+) -> int:
     if check:
-        failure = verify_credentials(settings, transport=transport)
+        failure = asyncio.run(verify_credentials(settings, transport=transport))
         if failure is not None:
             print(f"\nVerification failed: {failure}", file=output)
             print(
@@ -143,12 +161,18 @@ def configure_interactively(
                 file=output,
             )
             return 1
-        print("\n✓ Rapid7 authentication succeeded", file=output)
-    persist_settings(settings)
+        print("\nRapid7 authentication succeeded", file=output)
+    else:
+        print("Credentials not verified (verification declined).", file=output)
+    try:
+        persist_settings(settings)
+    except (OSError, ValueError):
+        print("Could not save credentials securely; check storage permissions.", file=output)
+        return 1
     summary = summary_of(settings)
     writes = "enabled" if summary.writes_enabled else "disabled"
-    print("✓ Credentials saved", file=output)
-    print(f"✓ Writes {writes}", file=output)
+    print(f"Credentials saved. Region: {summary.region}", file=output)
+    print(f"Writes {writes}", file=output)
     print("\nConfiguration saved for future MCP sessions.", file=output)
     print("Restart any already-running MCP client sessions.", file=output)
     return 0
