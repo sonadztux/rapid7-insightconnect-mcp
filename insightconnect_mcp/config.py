@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, field_validator
 
 Region = Literal["us", "us2", "us3", "eu", "ca", "au", "ap"]
 ENV_SETTINGS = ("R7_API_KEY", "R7_REGION", "R7_ALLOW_WRITES")
@@ -75,6 +75,13 @@ def resolve_settings(environ: Mapping[str, str] | None = None) -> ConfigurationR
     if any(name in env for name in ENV_SETTINGS):
         try:
             settings = Settings.from_env(env)
+        except ValidationError:
+            return ConfigurationResolution(
+                ConfigurationSource.ENVIRONMENT,
+                None,
+                "Invalid environment configuration: use a nonempty printable ASCII API key, "
+                "a supported R7_REGION, and R7_ALLOW_WRITES=true or false.",
+            )
         except ValueError as error:
             return ConfigurationResolution(ConfigurationSource.ENVIRONMENT, None, str(error))
         return ConfigurationResolution(ConfigurationSource.ENVIRONMENT, settings)
