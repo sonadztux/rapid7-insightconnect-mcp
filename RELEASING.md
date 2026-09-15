@@ -22,7 +22,7 @@ The publish workflow receives only `contents: read` and `id-token: write`. It do
 3. Run the full validation suite:
 
    ```sh
-   uv sync --frozen --extra dev
+   uv sync --frozen
    uv run ruff format --check .
    uv run ruff check .
    uv run mypy
@@ -32,17 +32,17 @@ The publish workflow receives only `contents: read` and `id-token: write`. It do
    ```
 
 4. Merge the release changes to `main`.
-5. Wait for the `checks` workflow on `main` to succeed. The release workflow then creates `v<version>` at that exact tested commit and dispatches trusted PyPI publishing on the tag. If that version already has a GitHub Release, the release workflow exits without publishing it again.
+5. Create a GitHub Release with tag `v<version>`, for example `v0.2.0`.
 
-The publish workflow refuses to publish if the release tag does not exactly match `v` plus the version in `pyproject.toml`.
+The publish workflow refuses to publish if the GitHub release tag does not exactly match `v` plus the version in `pyproject.toml`.
 
 ## Verify the published package
 
 After the PyPI job succeeds, test the public distribution rather than the checkout:
 
 ```sh
-uvx --from rapid7-insightconnect-mcp==0.2.1 rapid7-insightconnect-mcp --version
-uvx --from rapid7-insightconnect-mcp==0.2.1 rapid7-insightconnect-mcp doctor
+uvx --from rapid7-insightconnect-mcp==0.2.0 rapid7-insightconnect-mcp --version
+uvx --from rapid7-insightconnect-mcp==0.2.0 rapid7-insightconnect-mcp doctor
 ```
 
-For future releases, replace `0.2.1` with the released version.
+For future releases, replace `0.2.0` with the released version.
