@@ -43,6 +43,18 @@ async def test_offline_never_contacts_rapid7(stored):
     assert any(c.status == "fail" for c in checks) is not stored
 
 
+async def test_healthy_environment_config_warns_about_override():
+    checks = await diagnose(
+        environ={"R7_API_KEY": KEY, "R7_REGION": "eu", "R7_ALLOW_WRITES": "false"}
+    )
+    configuration = next(check for check in checks if check.name == "configuration")
+    assert configuration.status == "pass"
+    assert "environment" in configuration.message
+    assert next(check for check in checks if check.name == "environment").status == "warn"
+    assert all(check.status != "fail" for check in checks)
+    assert KEY not in str(checks)
+
+
 @pytest.mark.parametrize("kind", ["json", "permissions", "directory", "symlink"])
 async def test_unsafe_storage_fails(kind):
     path = save_credentials(Settings(api_key=SecretStr(KEY), region="us"))
