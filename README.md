@@ -15,7 +15,7 @@ More: [Supported tools](#supported-tools) · [Desktop apps and WSL](#desktop-app
 
 ## Requirements
 
-- **Python 3.11+**, **Git**, and **[uv](https://docs.astral.sh/uv/getting-started/installation/)**
+- **Python 3.11+** and **[uv](https://docs.astral.sh/uv/getting-started/installation/)**
 - An MCP client such as Claude Code, Codex, Hermes Agent, OpenCode, or Claude Desktop
 - A Rapid7 API key and your organization's region
 
@@ -27,139 +27,54 @@ You do not need the API key to install. Until credentials are configured, the se
 
 ## 1. Install
 
-Clone the repository and install the locked dependencies:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/). The release executable contract is:
 
 ```sh
-git clone https://github.com/sonadztux/rapid7-insightconnect-mcp.git
-cd rapid7-insightconnect-mcp
-uv sync --frozen --no-dev
-
-MCP_BIN="$(pwd)/.venv/bin/rapid7-insightconnect-mcp"
-"$MCP_BIN" --help
+uvx rapid7-insightconnect-mcp --help
 ```
 
-You should see usage text mentioning `setup`. You do **not** normally start the MCP server yourself. Your MCP client launches it when needed.
-
-Keep the checkout where it is. MCP clients configured with the launcher path will need to be updated if you move the folder.
-
-<details>
-<summary><strong>Alternative: run directly from Git with <code>uvx</code></strong></summary>
-
-`uvx` can download, cache, and launch the server without a clone. Pin a commit for reproducible installs:
+**Release status:** version 0.2.0 is prepared here, not published by this change. Plain `uvx` requires an approved PyPI release. Until then, use a reviewed, pinned Git revision:
 
 ```sh
-MCP_SOURCE="git+https://github.com/sonadztux/rapid7-insightconnect-mcp.git@<COMMIT_SHA>"
-UVX_BIN="$(command -v uvx)"
-"$UVX_BIN" --from "$MCP_SOURCE" rapid7-insightconnect-mcp --help
+uvx --from 'git+https://github.com/sonadztux/rapid7-insightconnect-mcp.git@<COMMIT_SHA>' rapid7-insightconnect-mcp --help
 ```
 
-Then register that command with your MCP client. For example:
-
-```sh
-# Claude Code
-claude mcp add --transport stdio --scope project rapid7-insightconnect -- \
-  "$UVX_BIN" --from "$MCP_SOURCE" rapid7-insightconnect-mcp
-
-# Codex
-codex mcp add rapid7-insightconnect -- \
-  "$UVX_BIN" --from "$MCP_SOURCE" rapid7-insightconnect-mcp
-
-# Hermes Agent (--args must come last)
-hermes mcp add rapid7-insightconnect --command "$UVX_BIN" \
-  --args --from "$MCP_SOURCE" rapid7-insightconnect-mcp
-```
-
-For OpenCode or a desktop app, use the absolute `uvx` path as the command and `--from <MCP_SOURCE> rapid7-insightconnect-mcp` as its arguments.
-
-Notes:
-
-- This route needs network access the first time.
-- It does not use the repository's `uv.lock`, so dependency resolution can differ from the clone install.
-- The package is not currently published on PyPI, so plain `uvx rapid7-insightconnect-mcp` does not work yet.
-
-Then continue with [Connect your Rapid7 account](#3-connect-your-rapid7-account).
-
-</details>
+Use the same `--from` prefix for registration, configure, and doctor before publication. A source checkout remains an option for [development](#development), not the normal installation interface.
 
 ## 2. Add the server to your MCP client
 
-These examples use `MCP_BIN` from the install step. In a new terminal, run this again from the repository root:
-
-```sh
-MCP_BIN="$(pwd)/.venv/bin/rapid7-insightconnect-mcp"
-```
-
-Registration only needs the launcher path. **Do not put your Rapid7 API key in these commands.**
+Your harness owns MCP registration and lifecycle. This server never detects clients, edits their settings, or generates client configuration. After publication:
 
 ### Claude Code
 
 ```sh
-claude mcp add --transport stdio --scope project rapid7-insightconnect -- "$MCP_BIN"
-claude mcp get rapid7-insightconnect
-claude
+claude mcp add --transport stdio rapid7-insightconnect -- \
+  uvx rapid7-insightconnect-mcp
 ```
-
-- `--scope project` stores the entry in that project's `.mcp.json`.
-- Use `--scope user` instead if you want the server available across projects.
-- In Claude Code, use `/mcp` to check the connection and approve the server if prompted.
-
-See the [Claude Code MCP docs](https://code.claude.com/docs/en/mcp).
 
 ### Codex
 
 ```sh
-codex mcp add rapid7-insightconnect -- "$MCP_BIN"
-codex mcp list
-codex
+codex mcp add rapid7-insightconnect -- \
+  uvx rapid7-insightconnect-mcp
 ```
 
-In Codex, use `/mcp` to check the server. `codex mcp login` is not needed because this server authenticates to Rapid7 with an API key, not OAuth.
+### Other MCP clients
 
-See the [Codex MCP docs](https://developers.openai.com/codex/mcp/).
+Use your client's native MCP command or settings:
 
-### Hermes Agent
-
-```sh
-hermes mcp add rapid7-insightconnect --command "$MCP_BIN"
-hermes mcp list
-hermes
+```text
+Command: uvx
+Arguments: rapid7-insightconnect-mcp
 ```
 
-If Hermes asks `Enable all 11 tools? [Y/n/select]`, choose `Y` or select the tools you want. Start a new Hermes session afterwards. If Hermes reports **"No inference provider configured"**, run `hermes model` first.
-
-See the [Hermes docs](https://hermes-agent.nousresearch.com/docs/).
-
-### OpenCode
-
-Add this `mcp` entry to `opencode.json`, replacing the path with the output of `echo "$MCP_BIN"`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "rapid7-insightconnect": {
-      "type": "local",
-      "command": ["/absolute/path/to/rapid7-insightconnect-mcp/.venv/bin/rapid7-insightconnect-mcp"],
-      "enabled": true
-    }
-  }
-}
-```
-
-Then check it:
-
-```sh
-opencode mcp list
-opencode
-```
-
-OpenCode may prefix tool names, for example `rapid7-insightconnect_list_workflows`. See [OpenCode MCP servers](https://opencode.ai/docs/mcp-servers/).
+Do not include Rapid7 credentials in registration. Enable the server and open a new session. Normally the harness starts it; running without arguments starts stdio, not an interactive wizard.
 
 ## 3. Connect your Rapid7 account
 
 ### Recommended: use the `setup` tool
 
-1. Ask your assistant: **"Run the setup tool from rapid7-insightconnect."**
+1. Ask your assistant: **"Connect my Rapid7 InsightConnect account."**
 2. Approve opening the local setup page when your MCP client asks.
 3. Pick your region: `us`, `us2`, `us3`, `eu`, `ca`, `au`, or `ap`.
 4. Paste the API key into the local page.
@@ -193,35 +108,26 @@ The credential directory is created with mode `0700` and the file with mode `060
 
 The key is **plain text protected by filesystem permissions**, not encrypted at rest.
 
-### Alternative: environment variables
+### Fallback: terminal configuration
 
-Use environment variables when your MCP client cannot open the local setup page or when you prefer the client's own secret storage.
-
-```sh
-read -r -s -p 'Rapid7 API key: ' R7_API_KEY; printf '\n'
-export R7_API_KEY
-export R7_REGION=eu
-export R7_ALLOW_WRITES=false
-
-claude    # or: codex, hermes, opencode
-```
-
-Configuration fails closed:
-
-- if **any** of `R7_API_KEY`, `R7_REGION`, or `R7_ALLOW_WRITES` is present, environment configuration is selected;
-- both `R7_API_KEY` and `R7_REGION` are required;
-- incomplete environment configuration does **not** silently fall back to saved credentials;
-- `R7_ALLOW_WRITES` must be exactly `true` or `false` when set.
-
-Desktop apps launched from an icon often do not inherit your shell environment. Use the app's MCP/environment settings instead.
-
-For a guided terminal walkthrough, run:
+If the client cannot open the local page:
 
 ```sh
-"$MCP_BIN" setup
+uvx rapid7-insightconnect-mcp configure
 ```
 
-That wizard can verify the key with one read-only Rapid7 request and prints a configuration example. It deliberately does **not** save the credential.
+Enter the key at the hidden prompt, select your region, and leave writes disabled. Verification defaults to yes and makes one read-only workflows request. Failed verification leaves existing credentials unchanged. Declining verification saves unverified settings. Then restart already-running MCP sessions.
+
+`setup` remains a deprecated CLI alias for `configure`; the MCP `setup` tool is unchanged. Neither CLI command generates harness configuration.
+
+### Advanced: environment variables
+
+Managed/CI environments may supply `R7_API_KEY`, `R7_REGION`, and optional `R7_ALLOW_WRITES` through their own secure mechanisms. Do not put keys in chat or command history.
+
+- Presence of any of these three variables selects environment configuration.
+- Both key and region are required; writes must be exactly `true` or `false`.
+- Invalid or partial environment settings never fall back to stored credentials.
+- Remove all three overrides to use saved settings. Restart affected sessions.
 
 ## 4. Try it
 
@@ -269,87 +175,35 @@ Resources:
 - `insightconnect://jobs/{job_id}`
 - `insightconnect://artifacts/{artifact_id}`
 
-The config resource never contains the API key.
+The config resource never contains the API key. It reports `setup_required` and `recommended_next_action` (`setup` or `list_workflows`).
 
 ## Desktop apps and WSL
 
-Desktop applications and similarly named CLI tools do not necessarily share MCP configuration. The application must be able to execute the server launcher on the machine where the app runs.
-
-### Claude Desktop
-
-Open **Settings → Developer → Edit Config** and add:
-
-```json
-{
-  "mcpServers": {
-    "rapid7-insightconnect": {
-      "command": "/absolute/path/to/rapid7-insightconnect-mcp/.venv/bin/rapid7-insightconnect-mcp",
-      "args": []
-    }
-  }
-}
-```
-
-Quit Claude Desktop completely and reopen it.
-
-### Codex desktop app
-
-Register the server with the Codex CLI under the same user account, or add this to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.rapid7-insightconnect]
-command = "/absolute/path/to/rapid7-insightconnect-mcp/.venv/bin/rapid7-insightconnect-mcp"
-args = []
-```
-
-Then enable the server in the app's MCP settings and open a new session.
-
-### Hermes Desktop
-
-Complete the Hermes registration first, then start the desktop app from your project folder:
-
-```sh
-hermes desktop --cwd "$PWD"
-```
-
-### OpenCode Desktop
-
-Open the project containing your `opencode.json` MCP entry, restart the backend, and check for `rapid7-insightconnect` in the MCP tool list.
-
-### Windows app with the server in WSL
-
-A native Windows app cannot execute a Linux path directly. If the app accepts an arbitrary command, launch the server through `wsl.exe`:
-
-```json
-{
-  "mcpServers": {
-    "rapid7-insightconnect": {
-      "command": "wsl.exe",
-      "args": [
-        "--distribution", "<DISTRO_NAME>",
-        "--exec", "/absolute/linux/path/to/rapid7-insightconnect-mcp/.venv/bin/rapid7-insightconnect-mcp"
-      ]
-    }
-  }
-}
-```
-
-Run `wsl --list --quiet` in PowerShell to find the distribution name. Saved credentials belong to the WSL user. Do not expose the setup page on a public interface to work around localhost issues.
+Use the application's native MCP settings. Ensure `uvx` is on its launch PATH; desktop apps may not inherit your terminal PATH. Native Windows apps cannot execute Linux paths directly: configure the harness to launch inside WSL, with configuration and diagnostics under the same WSL user. Never expose the setup page publicly to work around localhost access; use `configure` instead.
 
 ## Troubleshooting
 
-| Problem | What to try |
-| --- | --- |
-| `command not found`, or the server will not start | Use the absolute launcher path and run `"$MCP_BIN" --help` to verify the install. |
-| Server does not appear in the client | Check the client's MCP list, approve/enable the server, then open a new session. |
-| Tool call denied | Approve the tool in the MCP client. Do not disable all permission checks. |
-| "Credentials are not configured" | Run the `setup` tool, or configure `R7_API_KEY` and `R7_REGION`. |
-| Saved settings seem ignored | Remove **all** `R7_API_KEY`, `R7_REGION`, and `R7_ALLOW_WRITES` values from the MCP server environment if you want stored credentials to be used. |
-| Environment configuration fails | If any credential-related `R7_*` variable is present, set both `R7_API_KEY` and `R7_REGION`; `R7_ALLOW_WRITES` must be `true` or `false`. |
-| Setup times out or the client cannot open the page | Call setup again or use environment variables/client secret storage instead. |
-| HTTP 401 or 403 | Check the API key, region, and Rapid7 permissions. |
-| "Writes are disabled" | Run setup with writes enabled, or set a complete environment configuration with `R7_ALLOW_WRITES=true`. |
-| Hermes: "No inference provider configured" | Run `hermes model`. The AI model and Rapid7 credentials are configured separately. |
+Start with local diagnostics; this makes no Rapid7 requests:
+
+```sh
+uvx rapid7-insightconnect-mcp doctor
+```
+
+For an explicit read-only authentication/connectivity check:
+
+```sh
+uvx rapid7-insightconnect-mcp doctor --online
+```
+
+Doctor reports runtime version, configuration source, region, write policy, secure storage validation, environment overrides, and connectivity status. Exit `0` means no failing checks (warnings can remain), `1` means attention needed, and invalid CLI arguments return `2`.
+
+- Not configured: call `setup`, or run `configure` and restart.
+- Saved settings ignored: remove all three credential-related environment overrides.
+- Unsafe storage: check regular file ownership, private permissions and trusted parent directories; doctor does not repair files.
+- HTTP 401: check key and region. HTTP 403: check Rapid7 permissions.
+- Connection failure or timeout: check connectivity; no retry is made.
+- Missing server: inspect registration/approval in your harness, not Rapid7 settings.
+- Writes disabled: enable only when execution/cancellation is needed; per-call approval remains required.
 
 ## Configuration reference
 
@@ -412,14 +266,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ```text
 insightconnect_mcp/
-  cli.py            command line: serve over stdio, or run the setup wizard
+  cli.py            stdio, configure, doctor, version and help
   server.py         MCP tools and resources
   client.py         bounded Rapid7 HTTP client and response redaction
   config.py         settings, regions, and env precedence
   runtime.py        active client/settings lifecycle
   storage.py        owner-only credential persistence
   setup_form.py     one-time local setup page
-  setup_wizard.py   terminal onboarding walkthrough
+  setup_wizard.py   terminal configuration entry point
+  onboarding.py     shared verification, persistence and summaries
+  diagnostics.py    structured offline and opt-in online checks
 tests/
   data/insightconnect-api-v1.yaml   Rapid7 OpenAPI snapshot used for route checks
 ```

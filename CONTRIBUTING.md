@@ -33,6 +33,21 @@ uv build
 
 The tests are designed to run without a real Rapid7 account. HTTP interactions are mocked and setup tests use temporary credential directories.
 
+## Release preparation
+
+Version 0.2.0 changes terminal onboarding: `configure` saves credentials, `setup` is a deprecated CLI alias, and `doctor` is offline unless `--online` is supplied. MCP registration remains the harness's responsibility.
+
+Before an approved release:
+
+1. Run formatting, lint (including complexity and security rules), types, deterministic tests, and dependency audit.
+2. Run `uv build`; inspect both wheel and sdist for unexpected files or credentials. The sdist uses an explicit allowlist.
+3. Smoke-test the wheel's installed executable with `--help`, `--version`, and offline `doctor` in an isolated configuration directory.
+4. Obtain authorization for commits, branch push, PR, tagging, and PyPI publication. Do not treat local builds as publication.
+5. After package ownership/authentication is configured by the maintainer, publish the reviewed 0.2.0 artifacts using the approved release process. Never put publishing tokens in the repository.
+6. Verify `uvx rapid7-insightconnect-mcp --version` from the published package, then remove the README's pre-publication caveat.
+
+`.github/workflows/release.yml` publishes on a pushed `v*` tag. It reruns the checks, builds, and uploads through a PyPI Trusted Publisher, so no publishing token is stored. It stays inert until the maintainer configures the PyPI Trusted Publisher and the `pypi` environment, and pushing a tag remains an authorized maintainer action.
+
 ## Pull requests
 
 Keep pull requests focused. Explain:

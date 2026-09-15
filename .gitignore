@@ -13,3 +13,7 @@ dist/
 .env.*
 !.env.example
 **/credentials.json
+.dast-scratch/
+/rapid7_mcp_onboarding_restructure_plan.md
+/onboarding_completion_audit.txt
+*:Zone.Identifier
