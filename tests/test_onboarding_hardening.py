@@ -12,7 +12,7 @@ from insightconnect_mcp.config import ConfigurationSource, Settings, resolve_set
 from insightconnect_mcp.setup_wizard import ask_region, ask_yes_no
 from insightconnect_mcp.storage import load_credentials, save_credentials
 
-SECRET = "secret-leak-regression-sentinel"
+SECRET = "secret-leak-regression-sentinel"  # noqa: S105 - deliberate test sentinel
 
 
 @pytest.mark.parametrize(
