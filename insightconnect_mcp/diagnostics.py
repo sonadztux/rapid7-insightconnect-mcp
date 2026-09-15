@@ -142,6 +142,18 @@ def collect_diagnostics(
         ]
     )
 
+    if resolution.source is ConfigurationSource.ENVIRONMENT:
+        checks.append(
+            DiagnosticCheck(
+                "Environment",
+                "environment-override",
+                CheckStatus.WARNING,
+                "Environment configuration is active",
+                "R7_* settings take precedence over stored credentials. Remove all credential "
+                "overrides to use the stored configuration.",
+            )
+        )
+
     if not online:
         checks.append(
             DiagnosticCheck(
