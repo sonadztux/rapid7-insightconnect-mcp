@@ -9,7 +9,7 @@ Use Rapid7 InsightConnect from an MCP-compatible AI assistant to find workflows,
 - **Harness-agnostic:** your AI client owns MCP registration; this project only provides the MCP server.
 - **Local by design:** there is no hosted middle service.
 - **Read-only by default:** execution and cancellation stay disabled until you explicitly enable them.
-- **API keys stay out of chat:** setup collects the key through a one-time local browser page.
+- **API keys stay out of chat:** supported clients use a one-time local browser page; others use the local terminal configuration flow.
 
 ## Quick start
 
@@ -54,7 +54,9 @@ Open a new AI session and ask:
 
 > **Connect my Rapid7 InsightConnect account.**
 
-The MCP should call its `setup` tool and open a one-time local page. Choose your Rapid7 region, paste the API key, and leave writes disabled for your first session.
+The MCP calls its `setup` tool. If your MCP client supports opening local setup URLs, it opens a one-time local page where you choose your Rapid7 region, paste the API key, and leave writes disabled for your first session.
+
+If your client does not support that capability, the MCP gives you the terminal fallback `uvx rapid7-insightconnect-mcp configure` instead. Run it in a terminal, then restart the MCP session.
 
 The API key goes directly to the local MCP process, not through the conversation.
 
