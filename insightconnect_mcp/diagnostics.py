@@ -149,8 +149,8 @@ def collect_diagnostics(
                 "environment-override",
                 CheckStatus.WARNING,
                 "Environment configuration is active",
-                "R7_* settings take precedence over stored credentials. Remove all credential "
-                "overrides to use the stored configuration.",
+                "Environment configuration takes precedence over stored credentials. Remove "
+                "R7_API_KEY, R7_REGION, and R7_ALLOW_WRITES to use the stored configuration.",
             )
         )
 
