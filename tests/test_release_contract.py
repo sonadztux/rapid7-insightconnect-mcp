@@ -4,9 +4,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_release_version_is_0_2_0():
+def test_release_version_is_0_2_1_and_lock_matches():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert project["project"]["version"] == "0.2.0"
+    assert project["project"]["version"] == "0.2.1"
+
+    lock = (ROOT / "uv.lock").read_text()
+    assert 'name = "rapid7-insightconnect-mcp"\nversion = "0.2.1"' in lock
 
 
 def test_release_declares_and_packages_mit_license():
