@@ -12,7 +12,7 @@ USAGE = """Rapid7 InsightConnect MCP
 
 Usage:
   rapid7-insightconnect-mcp
-      Run the MCP server over stdio.
+      Run the MCP server over stdio when launched by an MCP client.
 
   rapid7-insightconnect-mcp configure
       Configure Rapid7 credentials outside an MCP client.
@@ -31,6 +31,24 @@ Usage:
 
 Normally you do not run the MCP server directly. Add it through your MCP client's own MCP
 command or settings, then use the MCP `setup` tool to connect Rapid7.
+"""
+
+INTERACTIVE_GUIDANCE = """Rapid7 InsightConnect MCP is a stdio MCP server.
+
+The bare command is meant to be launched by an MCP-compatible AI client, not used as an
+interactive terminal session.
+
+Add this server command to your MCP client:
+  uvx rapid7-insightconnect-mcp
+
+Verify the installed package:
+  uvx rapid7-insightconnect-mcp --version
+
+Configure Rapid7 from the terminal if needed:
+  uvx rapid7-insightconnect-mcp configure
+
+Show all commands:
+  uvx rapid7-insightconnect-mcp --help
 """
 
 
@@ -52,6 +70,9 @@ def _invalid(command: str) -> None:
 def main() -> None:
     args = sys.argv[1:]
     if not args:
+        if sys.stdin.isatty():
+            print(INTERACTIVE_GUIDANCE)
+            return
         serve()
         return
 
