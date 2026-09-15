@@ -9,6 +9,14 @@ def test_release_version_is_0_2_0():
     assert project["project"]["version"] == "0.2.0"
 
 
+def test_release_declares_and_packages_mit_license():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert project["project"]["license"] == "MIT"
+    assert "LICENSE.md" in project["project"]["license-files"]
+    assert "/LICENSE.md" in project["tool"]["hatch"]["build"]["targets"]["sdist"]["include"]
+    assert (ROOT / "LICENSE.md").read_text().startswith("MIT License\n")
+
+
 def test_readme_primary_install_is_uvx_and_harness_owned():
     readme = (ROOT / "README.md").read_text()
     assert "uvx rapid7-insightconnect-mcp" in readme
