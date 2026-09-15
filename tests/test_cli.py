@@ -98,7 +98,7 @@ def test_server_starts_unconfigured_and_names_the_setup_route():
     result = run()
     assert result.returncode == 0
     assert "setup tool" in result.stderr
-    assert "rapid7-insightconnect-mcp configure" in result.stderr
+    assert "`uvx rapid7-insightconnect-mcp configure`" in result.stderr
     assert "rapid7-insightconnect-mcp setup" not in result.stderr
     assert "R7_API_KEY" not in result.stderr
 
