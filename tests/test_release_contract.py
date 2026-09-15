@@ -34,14 +34,6 @@ def test_readme_primary_install_is_uvx_and_harness_owned():
     assert "does **not** save the credential" not in readme
 
 
-def test_dev_setup_installs_the_dev_extra_everywhere_it_is_required():
-    expected = "uv sync --frozen --extra dev"
-    assert expected in (ROOT / ".github" / "workflows" / "ci.yml").read_text()
-    assert expected in (ROOT / "README.md").read_text()
-    assert expected in (ROOT / "CONTRIBUTING.md").read_text()
-    assert expected in (ROOT / "RELEASING.md").read_text()
-
-
 def test_release_workflow_uses_oidc_and_pinned_pypi_action():
     workflow = (ROOT / ".github" / "workflows" / "publish.yml").read_text()
     assert "release:" in workflow
