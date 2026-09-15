@@ -6,6 +6,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib.metadata import version
+from itertools import groupby
 from typing import IO, Literal
 
 import httpx
@@ -111,14 +112,26 @@ async def diagnose(
     return checks
 
 
+SECTIONS = {
+    "runtime": "Runtime",
+    "configuration": "Configuration",
+    "storage": "Credential storage",
+    "environment": "Environment",
+    "connectivity": "Rapid7 connectivity",
+}
+MARKERS = {"pass": "✓", "warn": "○", "fail": "✗"}
+
+
 def run_doctor(*, online: bool = False, output: IO[str] | None = None) -> int:
     output = sys.stdout if output is None else output
     checks = asyncio.run(diagnose(online=online))
-    print("Rapid7 InsightConnect MCP doctor\n", file=output)
-    for check in checks:
-        print(f"[{check.status}] {check.name}: {check.message}", file=output)
-        if check.remediation:
-            print(f"  {check.remediation}", file=output)
+    print("Rapid7 InsightConnect MCP doctor", file=output)
+    for section, group in groupby(checks, key=lambda check: SECTIONS[check.name]):
+        print(f"\n{section}", file=output)
+        for check in group:
+            print(f"  {MARKERS[check.status]} {check.message}", file=output)
+            if check.remediation:
+                print(f"    {check.remediation}", file=output)
     failed = any(check.status == "fail" for check in checks)
     print(f"\nResult: {'needs attention' if failed else 'healthy'}", file=output)
     return int(failed)

@@ -99,3 +99,23 @@ def test_doctor_renders_missing_config():
     assert run_doctor(output=output) == 1
     assert "not configured" in output.getvalue()
     assert not credentials_path().exists()
+
+
+def test_doctor_groups_checks_under_sections():
+    save_credentials(Settings(api_key=SecretStr(KEY), region="eu"))
+    output = io.StringIO()
+    assert run_doctor(output=output) == 0
+    text = output.getvalue()
+    for section in (
+        "Runtime",
+        "Configuration",
+        "Credential storage",
+        "Environment",
+        "Rapid7 connectivity",
+    ):
+        assert f"\n{section}\n" in text
+    assert "  ✓ Version" in text
+    assert "  ○ Not checked." in text
+    assert "    Configure Rapid7 first" in text
+    assert text.rstrip().endswith("Result: healthy")
+    assert KEY not in text
