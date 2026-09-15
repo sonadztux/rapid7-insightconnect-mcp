@@ -46,5 +46,5 @@ def test_release_orchestrator_creates_release_and_dispatches_publish_on_tag():
     assert "actions: write" in workflow
     assert "gh release create" in workflow
     assert "gh workflow run publish.yml" in workflow
-    assert "--ref \"${TAG}\"" in workflow
+    assert '--ref "${TAG}"' in workflow
     assert "v${VERSION}" in workflow
