@@ -111,6 +111,7 @@ async def test_successful_flow_stores_credential_and_activates_tools(config_home
             before = await session.call_tool("cancel_job", job)
             assert before.isError
             assert "not connected yet" in before.content[0].text
+            assert "`uvx rapid7-insightconnect-mcp configure`" in before.content[0].text
             assert "paste an API key" in before.content[0].text
 
             result = await session.call_tool("setup", {})
